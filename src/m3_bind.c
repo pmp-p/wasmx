@@ -14,12 +14,18 @@
 u8  ConvertTypeCharToTypeId (char i_code)
 {
     switch (i_code) {
-    case 'v': return c_m3Type_none;
-    case 'i': return c_m3Type_i32;
-    case 'I': return c_m3Type_i64;
-    case 'f': return c_m3Type_f32;
-    case 'F': return c_m3Type_f64;
-    case '*': return c_m3Type_i32;
+        case 'v':
+            return c_m3Type_none;
+        case 'i':
+            return c_m3Type_i32;
+        case 'I':
+            return c_m3Type_i64;
+        case 'f':
+            return c_m3Type_f32;
+        case 'F':
+            return c_m3Type_f64;
+        case '*':
+            return c_m3Type_i32;
     }
     return c_m3Type_unknown;
 }
@@ -30,6 +36,7 @@ M3Result  SignatureToFuncType  (IM3FuncType * o_functionType, ccstr_t i_signatur
     M3Result result = m3Err_none;
 
     IM3FuncType funcType = NULL;
+
 _try {
     if (not o_functionType)
         _throw ("null function type");
@@ -43,7 +50,7 @@ _try {
     _throwif (m3Err_malformedFunctionSignature, maxNumArgs < 0);
     _throwif ("insane argument count", maxNumArgs > d_m3MaxSaneFunctionArgCount);
 
-    const unsigned umaxNumArgs = (unsigned)maxNumArgs;
+    const u32 umaxNumArgs = (u32) maxNumArgs;
 
 _   (AllocFuncType (& funcType, umaxNumArgs));
 
@@ -86,7 +93,7 @@ _   (AllocFuncType (& funcType, umaxNumArgs));
 } _catch:
 
     if (result)
-        m3Free (funcType);  // nulls funcType
+        m3_Free (funcType);
 
     * o_functionType = funcType;
 
@@ -112,7 +119,7 @@ _   (SignatureToFuncType (& ftype, i_linkingSignature));
 
     _catch:
 
-    m3Free (ftype);
+    m3_Free (ftype);
 
     return result;
 }
@@ -126,7 +133,7 @@ _try {
 _   (ValidateSignature (io_function, signature));
 
     IM3CodePage page = AcquireCodePageWithCapacity (io_module->runtime, 4);
-
+CLOG("    LinkRawFunction");
     if (page)
     {
         io_function->compiled = GetPagePC (page);
@@ -153,21 +160,43 @@ M3Result  FindAndLinkFunction      (IM3Module       io_module,
                                     voidptr_t       i_userdata)
 {
     M3Result result = m3Err_functionLookupFailed;
+#pragma message "TODO STR_ROM"
 
     bool wildcardModule = (strcmp (i_moduleName, "*") == 0);
+    int matchlen = strlen(i_functionName);
 
-    for (u32 i = 0; i < io_module->numFunctions; ++i)
-    {
+    for (u32 i = 0; i < io_module->numFunctions; ++i) {
+
         IM3Function f = & io_module->functions [i];
 
-        if (f->import.moduleUtf8 and f->import.fieldUtf8)
-        {
-            if (strcmp (f->import.fieldUtf8, i_functionName) == 0 and
-               (wildcardModule or strcmp (f->import.moduleUtf8, i_moduleName) == 0))
-            {
+        if (!f->import.moduleUtf8)
+           continue;
+
+        if (!f->import.fieldUtf8)
+            continue;
+
+        STR_translate(f->import.fieldUtf8);
+
+rawstr:;
+        if ( strcmp (i_functionName, &SB) )
+            continue;
+
+        STR_translate(f->import.moduleUtf8);
+
+        if ( wildcardModule || !strcmp(i_moduleName, &SB)) {
                 result = LinkRawFunction (io_module, f, i_signature, i_function, i_userdata);
-                if (result) return result;
-            }
+                // ERROR
+                if (result) {
+                    CLOG("  FindAndLinkFunctionR?M(%s.%s)-> ERROR", SB, i_functionName);
+// ?
+                    break;
+                } else {
+                    CLOG("  FindAndLinkFunctionR?M(%s.%s)-> VALID", SB, i_functionName);
+
+                }
+#pragma message "break here ?"
+        } else {
+            CLOG("  FindAndLinkFunctionR?M(%s.%s)-> INVALID", SB, i_functionName);
         }
     }
 

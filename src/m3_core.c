@@ -10,7 +10,7 @@
 
 #include "m3_core.h"
 #include "m3_env.h"
-
+#include "m3_core.extra"
 void m3_Abort(const char* message) {
 #ifdef DEBUG
     fprintf(stderr, "Error: %s\n", message);
@@ -37,7 +37,7 @@ static u8* fixedHeapLast = NULL;
 #   define HEAP_ALIGN_PTR(P)
 #endif
 
-M3Result  m3_Malloc  (void ** o_ptr, size_t i_size)
+void *  m3_Malloc  (size_t i_size)
 {
     u8 * ptr = fixedHeapPtr;
 
@@ -46,117 +46,105 @@ M3Result  m3_Malloc  (void ** o_ptr, size_t i_size)
 
     if (fixedHeapPtr >= fixedHeapEnd)
     {
-        * o_ptr = NULL;
-
-        return m3Err_mallocFailed;
+        return NULL;
     }
 
     memset (ptr, 0x0, i_size);
-    * o_ptr = ptr;
     fixedHeapLast = ptr;
 
     //printf("== alloc %d => %p\n", i_size, ptr);
 
-    return m3Err_none;
+    return ptr;
 }
 
-void  m3_Free  (void ** io_ptr)
+void  m3_FreeImpl  (void * i_ptr)
 {
-    if (!io_ptr) return;
-
     // Handle the last chunk
-    if (io_ptr == fixedHeapLast) {
+    if (i_ptr && i_ptr == fixedHeapLast) {
         fixedHeapPtr = fixedHeapLast;
         fixedHeapLast = NULL;
         //printf("== free %p\n", io_ptr);
     } else {
         //printf("== free %p [failed]\n", io_ptr);
     }
-
-    * io_ptr = NULL;
 }
 
-M3Result  m3_Realloc  (void ** io_ptr, size_t i_newSize, size_t i_oldSize)
+void *  m3_Realloc  (void * i_ptr, size_t i_newSize, size_t i_oldSize)
 {
     //printf("== realloc %p => %d\n", io_ptr, i_newSize);
 
-    void * ptr = *io_ptr;
-    if (i_newSize == i_oldSize) return m3Err_none;
+    if (UNLIKELY(i_newSize == i_oldSize)) return i_ptr;
+
+    void * newPtr;
 
     // Handle the last chunk
-    if (ptr && ptr == fixedHeapLast) {
+    if (i_ptr && i_ptr == fixedHeapLast) {
         fixedHeapPtr = fixedHeapLast + i_newSize;
         HEAP_ALIGN_PTR(fixedHeapPtr);
-        return m3Err_none;
+        if (fixedHeapPtr >= fixedHeapEnd)
+        {
+            return NULL;
+        }
+        newPtr = i_ptr;
+    } else {
+        newPtr = m3_Malloc(i_newSize);
+        if (!newPtr) {
+            return NULL;
+        }
+        if (i_ptr) {
+            BC_COPY(newPtr, i_ptr, i_oldSize);
+        }
     }
 
-    M3Result result = m3_Malloc(&ptr, i_newSize);
-    if (result) return result;
-
-    if (*io_ptr) {
-        memcpy(ptr, *io_ptr, i_oldSize);
+    if (i_newSize > i_oldSize) {
+        memset ((u8 *) newPtr + i_oldSize, 0x0, i_newSize - i_oldSize);
     }
 
-    *io_ptr = ptr;
-    return m3Err_none;
+    return newPtr;
 }
 
 #else
 
-M3Result  m3_Malloc  (void ** o_ptr, size_t i_size)
+void *  m3_Malloc  (size_t i_size)
 {
-    M3Result result = m3Err_none;
-
     void * ptr = calloc (i_size, 1);
 
-    if (not ptr)
-        result = m3Err_mallocFailed;
-
-    * o_ptr = ptr;
 //    printf("== alloc %d => %p\n", (u32) i_size, ptr);
 
-    return result;
+    return ptr;
 }
 
-void  m3_Free  (void ** io_ptr)
+void  m3_FreeImpl  (void * io_ptr)
 {
 //    if (io_ptr) printf("== free %p\n", io_ptr);
-    free (* io_ptr);
-    * io_ptr = NULL;
+    free ((void*)io_ptr);
 }
 
-M3Result  m3_Realloc  (void ** io_ptr, size_t i_newSize, size_t i_oldSize)
+void *  m3_Realloc  (void * i_ptr, size_t i_newSize, size_t i_oldSize)
 {
-    M3Result result = m3Err_none;
+    if (UNLIKELY(i_newSize == i_oldSize)) return i_ptr;
 
-    if (i_newSize != i_oldSize)
+    void * newPtr = realloc (i_ptr, i_newSize);
+
+    if (LIKELY(newPtr))
     {
-        void * newPtr = realloc (* io_ptr, i_newSize);
-
-        if (newPtr)
-        {
-            if (i_newSize > i_oldSize)
-                memset ((u8 *) newPtr + i_oldSize, 0x0, i_newSize - i_oldSize);
-
-            * io_ptr = newPtr;
+        if (i_newSize > i_oldSize) {
+            memset ((u8 *) newPtr + i_oldSize, 0x0, i_newSize - i_oldSize);
         }
-        else result = m3Err_mallocFailed;
-
-//        printf("== realloc %p -> %p => %d\n", io_ptr, io_ptr, (u32) i_newSize);
+        return newPtr;
     }
-
-    return result;
+    return NULL;
 }
 
 #endif
 
-M3Result  m3_CopyMem  (void ** o_to, const void * i_from, size_t i_size)
+void *  m3_CopyMem  (const void * i_from, size_t i_size)
 {
-    M3Result result = m3_Malloc(o_to, i_size);
-    if (!result) {
-        memcpy (*o_to, i_from, i_size);
+    void * ptr = m3_Malloc(i_size);
+    if (ptr) {
+        BC_COPY(ptr, i_from, i_size);
     }
-    return result;
+    return ptr;
 }
 
 //--------------------------------------------------------------------------------------------
@@ -198,7 +186,6 @@ M3Result NormalizeType (u8 * o_type, i8 i_convolutedWasmType)
     M3Result result = m3Err_none;
 
     u8 type = -i_convolutedWasmType;
-
     if (type == 0x40)
         type = c_m3Type_none;
     else if (type < c_m3Type_i32 or type > c_m3Type_f64)
@@ -251,7 +238,7 @@ M3Result  Read_u64  (u64 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
     if (ptr <= i_end)
     {
-        memcpy(o_value, * io_bytes, sizeof(u64));
+        BC_COPY(o_value, * io_bytes, sizeof(u64));
         M3_BSWAP_u64(*o_value);
         * io_bytes = ptr;
         return m3Err_none;
@@ -267,7 +254,7 @@ M3Result  Read_u32  (u32 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
     if (ptr <= i_end)
     {
-        memcpy(o_value, * io_bytes, sizeof(u32));
+        BC_COPY(o_value, * io_bytes, sizeof(u32));
         M3_BSWAP_u32(*o_value);
         * io_bytes = ptr;
         return m3Err_none;
@@ -284,7 +271,7 @@ M3Result  Read_f64  (f64 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
     if (ptr <= i_end)
     {
-        memcpy(o_value, * io_bytes, sizeof(f64));
+        BC_COPY(o_value, * io_bytes, sizeof(f64));
         M3_BSWAP_f64(*o_value);
         * io_bytes = ptr;
         return m3Err_none;
@@ -300,7 +287,7 @@ M3Result  Read_f32  (f32 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
     if (ptr <= i_end)
     {
-        memcpy(o_value, * io_bytes, sizeof(f32));
+        BC_COPY(o_value, * io_bytes, sizeof(f32));
         M3_BSWAP_f32(*o_value);
         * io_bytes = ptr;
         return m3Err_none;
@@ -312,17 +299,81 @@ M3Result  Read_f32  (f32 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
 M3Result  Read_u8  (u8 * o_value, bytes_t  * io_bytes, cbytes_t i_end)
 {
-    const u8 * ptr = * io_bytes;
+    if (bc_in_rom){
+        if (io_bytes < i_end) {
+            BC_COPY(o_value, *io_bytes, sizeof(u8));
+            *io_bytes += sizeof(u8);
+            return m3Err_none;
+        } else {
+            cdbg("307:Read_u8 u/r io=%p end=%p",io_bytes,i_end);
+            return m3Err_wasmUnderrun;
+        }
+    } else {
+       const u8 * ptr = * io_bytes;
 
-    if (ptr < i_end)
-    {
-        * o_value = * ptr;
-        ptr += sizeof (u8);
-        * io_bytes = ptr;
+        if (ptr < i_end)
+        {
+            * o_value = * ptr;
+            * io_bytes = ptr + 1;
 
-        return m3Err_none;
+            return m3Err_none;
+        }
+        else return m3Err_wasmUnderrun;
     }
-    else return m3Err_wasmUnderrun;
+}
+
+
+M3Result  Read_opcode  (m3opcode_t * o_value, bytes_t  * io_bytes, cbytes_t i_end)
+{
+    //ROM
+    if (bc_in_rom) {
+        if ( io_bytes < i_end)
+        {
+            u8 b;
+            Read_u8(&b, io_bytes, i_end);
+            m3opcode_t opcode = (m3opcode_t)b;
+
+    #ifndef d_m3CompileExtendedOpcode
+            if (UNLIKELY(opcode == 0xFC))
+            {
+                if (io_bytes < i_end)
+                {
+                    Read_u8(&b, io_bytes, i_end);
+                    opcode = (opcode << 8) | b;
+                }
+                else return m3Err_wasmUnderrun;
+            }
+    #endif
+            * o_value = opcode;
+
+            return m3Err_none;
+        }
+        else return m3Err_wasmUnderrun;
+    //RAM
+    } else {
+        const u8 * ptr = * io_bytes;
+
+        if (ptr < i_end)
+        {
+            m3opcode_t opcode = * ptr++;
+
+    #ifndef d_m3CompileExtendedOpcode
+            if (UNLIKELY(opcode == 0xFC))
+            {
+                if (ptr < i_end)
+                {
+                    opcode = (opcode << 8) | (* ptr++);
+                }
+                else return m3Err_wasmUnderrun;
+            }
+    #endif
+            * o_value = opcode;
+            * io_bytes = ptr;
+
+            return m3Err_none;
+        }
+        else return m3Err_wasmUnderrun;
+    }
 }
 
 
@@ -333,11 +384,17 @@ M3Result  ReadLebUnsigned  (u64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes,
     u64 value = 0;
 
     u32 shift = 0;
+
     const u8 * ptr = * io_bytes;
 
-    while (ptr < i_end)
+    while ( ptr  < i_end)
     {
-        u64 byte = * (ptr++);
+        u64 byte;
+        u8 b ;
+        Read_u8(&b, io_bytes, i_end);
+        byte = (u64)b;
+
+        ptr++;
 
         value |= ((byte & 0x7f) << shift);
         shift += 7;
@@ -354,10 +411,11 @@ M3Result  ReadLebUnsigned  (u64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes,
             break;
         }
     }
+    if (ptr==io_bytes)
+        return m3Err_wasmUnderrun;
 
     * o_value = value;
     * io_bytes = ptr;
-
     return result;
 }
 
@@ -369,11 +427,17 @@ M3Result  ReadLebSigned  (i64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes, c
     i64 value = 0;
 
     u32 shift = 0;
+
     const u8 * ptr = * io_bytes;
 
-    while (ptr < i_end)
+
+    while ( ptr < i_end)
     {
-        u64 byte = * (ptr++);
+        u64 byte;
+        u8 b ;
+        Read_u8(&b, io_bytes, i_end);
+        byte = (u64)b;
+        ptr++;
 
         value |= ((byte & 0x7f) << shift);
         shift += 7;
@@ -397,10 +461,11 @@ M3Result  ReadLebSigned  (i64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes, c
             break;
         }
     }
+    if (ptr==io_bytes)
+        return m3Err_wasmUnderrun;
 
     * o_value = value;
     * io_bytes = ptr;
-
     return result;
 }
 
@@ -454,42 +519,112 @@ M3Result  ReadLEB_i64  (i64 * o_value, bytes_t * io_bytes, cbytes_t i_end)
     return result;
 }
 
-
 M3Result  Read_utf8  (cstr_t * o_utf8, bytes_t * io_bytes, cbytes_t i_end)
 {
-    *o_utf8 = NULL;
+    //ROM
+    if (bc_in_rom){
 
-    u32 utf8Length;
-    M3Result result = ReadLEB_u32 (& utf8Length, io_bytes, i_end);
+        *o_utf8 = NULL;
+        u32 utf8Length;
+        M3Result result = ReadLEB_u32 (& utf8Length, io_bytes, i_end);
 
-    if (not result)
-    {
-        if (utf8Length <= d_m3MaxSaneUtf8Length)
+        if (not result)
         {
-            const u8 * ptr = * io_bytes;
-            const u8 * end = ptr + utf8Length;
-
-            if (end <= i_end)
+            if (utf8Length <= d_m3MaxSaneUtf8Length)
             {
-                char * utf8;
-                result = m3_Malloc ((void **) & utf8, utf8Length + 1);
+                const u8 * end = *io_bytes + utf8Length;
 
-                if (not result)
+                if (end <= i_end)
                 {
-                    memcpy (utf8, ptr, utf8Length);
-                    utf8 [utf8Length] = 0;
-                    * o_utf8 = utf8;
-                }
+//PMPP
+if (STRCOMPRESS) { //bc_in_rom){
+    //  12 xxxx xxxx
+                    #define STRHEADER 12
+                    #define STRMAX STRHEADER-1
+                    char * utf8 = (char *)m3_Malloc ( STRHEADER );
+                    if (utf8) {
+                        ++SECTION_TEXT_IDX;
+                        SECTION_TEXT_SIZE += utf8Length;
+                        snprintf(utf8, STRMAX, "@%c%08x", utf8Length, *io_bytes);
+                        utf8[STRMAX] = 0;
+                        * o_utf8 = utf8;
+                        if (utf8Length>SB_MAX) {
+                            cdbg(PSTR("525:utf8 B/O %d > %d"), utf8Length, SB_MAX);
+                            utf8Length=SB_MAX;
+                        }
 
-                * io_bytes = end;
+                        BC_COPY(&SB, *io_bytes, utf8Length);
+                        SB[utf8Length]=0;
+//                        cdbg(PSTR("530:utf8[#%d %s \"%s\""), SECTION_TEXT_IDX, &utf8[2], SB);
+                    } else {
+                        OOM = utf8Length;
+                        cdbg(PSTR("585:utf8 alloc %d"), utf8Length);
+                        return m3Err_wasmMemoryOverflow;
+                    }
+} else {
+                    char * utf8 = (char *)m3_Malloc (utf8Length + 1);
+                    if (utf8)
+                    {
+                        BC_COPY(utf8, *io_bytes, utf8Length);
+                        utf8 [utf8Length] = 0;
+                        * o_utf8 = utf8;
+                    } else {
+    OOM = utf8Length;
+CLOG("585:utf8 alloc %d", utf8Length);
+    return m3Err_wasmMemoryOverflow;
+                    }
+}
+                    *io_bytes = end;
+                }
+                else result = m3Err_wasmUnderrun;
             }
-            else result = m3Err_wasmUnderrun;
+            else result = m3Err_missingUTF8;
         }
-        else result = m3Err_missingUTF8;
+        return result;
+
+    // RAM
+    } else {
+        *o_utf8 = NULL;
+
+        u32 utf8Length;
+        M3Result result = ReadLEB_u32 (& utf8Length, io_bytes, i_end);
+
+        if (not result)
+        {
+            if (utf8Length <= d_m3MaxSaneUtf8Length)
+            {
+                const u8 * ptr = * io_bytes;
+                const u8 * end = ptr + utf8Length;
+
+                if (end <= i_end)
+                {
+                    char * utf8 = (char *)m3_Malloc (utf8Length + 1);
+
+                    if (utf8)
+                    {
+                        memcpy (utf8, ptr, utf8Length);
+                        utf8 [utf8Length] = 0;
+                        * o_utf8 = utf8;
+                    }
+
+                    * io_bytes = end;
+                }
+                else result = m3Err_wasmUnderrun;
+            }
+            else result = m3Err_missingUTF8;
+        }
+
+        return result;
+
     }
 
-    return result;
+
 }
+
+
+
+
+
 
 #if d_m3RecordBacktraces
 u32  FindModuleOffset  (IM3Runtime i_runtime, pc_t i_pc)
@@ -541,8 +676,7 @@ void  PushBacktraceFrame  (IM3Runtime io_runtime, pc_t i_pc)
     if (UNLIKELY (io_runtime->backtrace.lastFrame == M3_BACKTRACE_TRUNCATED))
         return;
 
-    M3BacktraceFrame * newFrame;
-    m3Alloc ((void **) & newFrame, M3BacktraceFrame, 1);
+    M3BacktraceFrame * newFrame = m3_AllocStruct(M3BacktraceFrame);
 
     if (!newFrame)
     {
@@ -580,7 +714,7 @@ void  ClearBacktrace  (IM3Runtime io_runtime)
     while (currentFrame)
     {
         M3BacktraceFrame * nextFrame = currentFrame->next;
-        m3Free (currentFrame);
+        m3_Free (currentFrame);
         currentFrame = nextFrame;
     }
 

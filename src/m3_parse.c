@@ -45,11 +45,11 @@ M3Result  ParseSection_Type  (IM3Module io_module, bytes_t i_bytes, cbytes_t i_e
 _try {
     u32 numTypes;
 _   (ReadLEB_u32 (& numTypes, & i_bytes, i_end));                                   m3log (parse, "** Type [%d]", numTypes);
-
     if (numTypes)
     {
         // table of IM3FuncType (that point to the actual M3FuncType struct in the Environment)
-_       (m3Alloc (& io_module->funcTypes, IM3FuncType, numTypes));
+        io_module->funcTypes = m3_AllocArray (IM3FuncType, numTypes);
+        _throwifnull(io_module->funcTypes);
         io_module->numFuncTypes = numTypes;
 
         for (u32 i = 0; i < numTypes; ++i)
@@ -60,13 +60,12 @@ _           (ReadLEB_i7 (& form, & i_bytes, i_end));
 
             u32 numArgs;
 _           (ReadLEB_u32 (& numArgs, & i_bytes, i_end));
-
             _throwif ("insane argument count", numArgs > d_m3MaxSaneFunctionArgCount);
 
 #if defined(M3_COMPILER_MSVC)
             u8 argTypes[d_m3MaxSaneFunctionArgCount];
 #else
-            u8 argTypes[numArgs];
+            u8 argTypes[numArgs+1]; // make ubsan happy
 #endif
             for (u32 a = 0; a < numArgs; ++a)
             {
@@ -80,7 +79,6 @@ _               (NormalizeType (& argType, wasmType));
 
             u32 numRets;
 _           (ReadLEB_u32 (& numRets, & i_bytes, i_end));
-
             _throwif ("insane returns count", numRets > d_m3MaxSaneFunctionArgCount);
 
 _           (AllocFuncType (& ftype, numRets + numArgs));
@@ -107,8 +105,8 @@ _               (NormalizeType (& retType, wasmType));
 
     if (result)
     {
-        m3Free (ftype);
-        m3Free (io_module->funcTypes);
+        m3_Free (ftype);
+        m3_Free (io_module->funcTypes);
         io_module->numFuncTypes = 0;
     }
 
@@ -149,9 +147,13 @@ _   (ReadLEB_u32 (& numImports, & i_bytes, i_end));                             
         u8 importKind;
 
 _       (Read_utf8 (& import.moduleUtf8, & i_bytes, i_end));
+
+
 _       (Read_utf8 (& import.fieldUtf8, & i_bytes, i_end));
-_       (Read_u8 (& importKind, & i_bytes, i_end));                                 m3log (parse, "    kind: %d '%s.%s' ",
-                                                                                                (u32) importKind, import.moduleUtf8, import.fieldUtf8);
+
+
+_       (Read_u8 (& importKind,  &i_bytes, i_end));
+
         switch (importKind)
         {
             case d_externalKind_function:
@@ -198,6 +200,7 @@ _               (Module_AddGlobal (io_module, & global, type, isMutable, true /*
         }
 
         FreeImportInfo (& import);
+        if (OOM) return;
     }
 
     _catch:
@@ -233,11 +236,11 @@ _       (ReadLEB_u32 (& index, & i_bytes, i_end));                              
             {
                 io_module->functions [index].numNames++;
                 io_module->functions [index].names[numNames] = utf8;
-                utf8 = NULL; // ownership transfered to M3Function
+                utf8 = NULL; // ownership transferred to M3Function
             }
         }
 
-        m3Free (utf8);
+        m3_Free (utf8);
     }
 
     _catch: return result;
@@ -313,6 +316,8 @@ _   (ReadLEB_u32 (& numFunctions, & i_bytes, i_end));                           
 
     for (u32 f = 0; f < numFunctions; ++f)
     {
+        const u8 * start = i_bytes;
+
         u32 size;
 _       (ReadLEB_u32 (& size, & i_bytes, i_end));
 
@@ -323,8 +328,6 @@ _       (ReadLEB_u32 (& size, & i_bytes, i_end));
 
             if (i_bytes <= i_end)
             {
-                const u8 * start = ptr;
-
                 u32 numLocalBlocks;
 _               (ReadLEB_u32 (& numLocalBlocks, & ptr, i_end));                                      m3log (parse, "    code size: %-4d", size);
 
@@ -371,8 +374,8 @@ M3Result  ParseSection_Data  (M3Module * io_module, bytes_t i_bytes, cbytes_t i_
     u32 numDataSegments;
 _   (ReadLEB_u32 (& numDataSegments, & i_bytes, i_end));                            m3log (parse, "** Data [%d]", numDataSegments);
 
-_   (m3Alloc (& io_module->dataSegments, M3DataSegment, numDataSegments));
-
+    io_module->dataSegments = m3_AllocArray (M3DataSegment, numDataSegments);
+    _throwifnull(io_module->dataSegments);
     io_module->numDataSegments = numDataSegments;
 
     for (u32 i = 0; i < numDataSegments; ++i)
@@ -456,7 +459,7 @@ _   (Read_utf8 (& name, & i_bytes, i_end));
     if (strcmp (name, "name") != 0)
         i_bytes = i_end;
 
-    m3Free (name);
+    m3_Free (name);
 
     while (i_bytes < i_end)
     {
@@ -489,7 +492,7 @@ _               (Read_utf8 (& name, & i_bytes, i_end));
 //                          else m3log (parse, "prenamed: %s", io_module->functions [index].name);
                 }
 
-                m3Free (name);
+                m3_Free (name);
             }
         }
 
@@ -531,6 +534,7 @@ M3Result  ParseModuleSection  (M3Module * o_module, u8 i_sectionType, bytes_t i_
     if (parser)
     {
         cbytes_t end = i_bytes + i_numBytes;
+        cdbg("ParseModuleSection type %d len %d", i_sectionType, i_numBytes);
         result = parser (o_module, i_bytes, end);
     }
     else
@@ -548,13 +552,14 @@ M3Result  m3_ParseModule  (IM3Environment i_environment, IM3Module * o_module, c
 
     IM3Module module;
 _try {
-_   (m3Alloc (& module, M3Module, 1));
-
+    module = m3_AllocStruct (M3Module);
+    _throwifnull(module);
     module->name = ".unnamed";                                                      m3log (parse, "load module: %d bytes", i_numBytes);
     module->startFunction = -1;
     //module->hasWasmCodeCopy = false;
     module->environment = i_environment;
 
+//    const u8 * ini_pos = i_bytes;
     const u8 * pos = i_bytes;
     const u8 * end = pos + i_numBytes;
 
@@ -563,17 +568,20 @@ _   (m3Alloc (& module, M3Module, 1));
 
     u32 magic, version;
 _   (Read_u32 (& magic, & pos, end));
+    //cdbg("Magic %x at %d", magic, pos-ini_pos );
 _   (Read_u32 (& version, & pos, end));
-
+    //cdbg("Version %x at %d", version, pos-ini_pos );
     _throwif (m3Err_wasmMalformed, magic != 0x6d736100);
     _throwif (m3Err_incompatibleWasmVersion, version != 1);
-                                                                                    m3log (parse,  "found magic + version");
+
     u8 previousSection = 0;
 
     while (pos < end)
     {
         u8 section;
+
 _       (ReadLEB_u7 (& section, & pos, end));
+//cdbg("\r\n\r\nsection %x at %d", section, pos-ini_pos );
 
         if (section > previousSection or                    // from the spec: sections must appear in order
             section == 0 or                                 // custom section
@@ -583,17 +591,24 @@ _       (ReadLEB_u7 (& section, & pos, end));
             u32 sectionLength;
 _           (ReadLEB_u32 (& sectionLength, & pos, end));
             _throwif(m3Err_wasmMalformed, pos + sectionLength > end);
-_           (ParseModuleSection (module, section, pos, sectionLength));
 
+_           (ParseModuleSection (module, section, pos, sectionLength));
             pos += sectionLength;
+//            cdbg("Parsed len=%d at %d", sectionLength, pos-ini_pos );
+
+            if (OOM)
+                return m3Err_wasmMemoryOverflow;
 
             if (section)
                 previousSection = section;
         }
         else _throw (m3Err_misorderedWasmSection);
+
     }
 
     } _catch:
+
+CLOG("TEXT Section items=%lu size=%lu", SECTION_TEXT_IDX, SECTION_TEXT_SIZE);
 
     if (result)
     {

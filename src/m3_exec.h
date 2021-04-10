@@ -8,7 +8,7 @@
 #ifndef m3_exec_h
 #define m3_exec_h
 
-// TODO: all these functions could move over to the .c at some point. normally, i'd say screw it,
+// TODO: all these functions could move over to the .c at some point. normally, I'd say screw it,
 // but it might prove useful to be able to compile m3_exec alone w/ optimizations while the remaining
 // code is at debug O0
 
@@ -551,9 +551,10 @@ d_m3Op  (CallIndirect)
         {
             if (LIKELY(type == function->funcType))
             {
-                if (UNLIKELY(not function->compiled))
+                if (UNLIKELY(not function->compiled)) {
+cdbg(PSTR("Compile_Function-3 (UNLIKELY)"));
                     r = Compile_Function (function);
-
+                }
                 if (LIKELY(not r))
                 {
                     r = Call (function->compiled, sp, _mem, d_m3OpDefaultArgs);
@@ -632,7 +633,7 @@ d_m3Op  (CallRawFunction)
 
 #if d_m3EnableStrace
     if (UNLIKELY(possible_trap)) {
-        d_m3TracePrint("%s -> %s", outbuff, possible_trap);
+        d_m3TracePrint("%s -> %s", outbuff, (char*)possible_trap);
     } else {
         switch (GetSingleRetType(ftype)) {
         case c_m3Type_none: d_m3TracePrint("%s", outbuff); break;
@@ -687,7 +688,7 @@ d_m3Op  (MemGrow)
 
 // it's a debate: should the compilation be trigger be the caller or callee page.
 // it's a much easier to put it in the caller pager. if it's in the callee, either the entire page
-// has be left dangling or it's just a stub that jumps to a newly acquire page.  In Gestalt, I opted
+// has be left dangling or it's just a stub that jumps to a newly acquired page.  In Gestalt, I opted
 // for the stub approach. Stubbing makes it easier to dynamically free the compilation. You can also
 // do both.
 d_m3Op  (Compile)
@@ -698,12 +699,16 @@ d_m3Op  (Compile)
 
     m3ret_t result = m3Err_none;
 
-    if (UNLIKELY(not function->compiled)) // check to see if function was compiled since this operation was emitted.
+    // check to see if function was compiled since this operation was emitted.
+    if (UNLIKELY(not function->compiled)) {
+
+        cdbg(PSTR("Compile_Function-4 (UNLIKELY)"));
         result = Compile_Function (function);
+    }
 
     if (not result)
     {
-        // patch up compiled pc and call rewriten op_Call
+        // patch up compiled pc and call rewritten op_Call
         * ((void**) --_pc) = (void*) (function->compiled);
         --_pc;
         nextOpDirect ();
@@ -739,7 +744,11 @@ d_m3Op  (Entry)
 
         if (function->constants)
         {
-            memcpy (stack, function->constants, function->numConstantBytes);
+            if (function->constants > ROM_BASE) {
+                memcpy_P(stack, function->constants, function->numConstantBytes);
+            } else {
+                memcpy (stack, function->constants, function->numConstantBytes);
+            }
         }
 
 #if d_m3EnableStrace >= 2

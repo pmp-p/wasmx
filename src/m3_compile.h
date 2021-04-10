@@ -158,16 +158,19 @@ extern const M3OpInfo c_operationsFC [];
 static inline
 const M3OpInfo* GetOpInfo(m3opcode_t opcode) {
     switch (opcode >> 8) {
-    case 0x00: return &c_operations[opcode];
-    case 0xFC: return &c_operationsFC[opcode & 0xFF];
-    default:   return NULL;
+        case 0x00:
+            return &c_operations[opcode];
+        case 0xFC:
+            return &c_operationsFC[opcode & 0xFF];
+        default:
+            return NULL;
     }
 }
 
 // TODO: This helper should be removed, when MultiValue is implemented
 static inline
 u8 GetSingleRetType(IM3FuncType ftype) {
-    return (ftype && ftype->numRets) ? ftype->types[0] : c_m3Type_none;
+    return (ftype && ftype->numRets) ? ftype->types[0] : (u8)c_m3Type_none;
 }
 
 #ifdef DEBUG
