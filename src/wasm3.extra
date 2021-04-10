@@ -1,0 +1,29 @@
+#define ROM_BASE 0x40000000
+#define STRCOMPRESS (1)
+
+#define RB_SIZE 128
+#define RB_MAX RB_SIZE-1
+
+#define SB_SIZE 256
+#define SB_MAX SB_SIZE-1
+
+extern int OOM;
+extern unsigned long SECTION_TEXT_IDX;
+extern unsigned long SECTION_TEXT_SIZE;
+extern char RB[RB_SIZE];
+extern char SB[SB_SIZE];
+extern void cdbg(const char *fmt, ...);
+typedef void (*void_v)();
+
+extern const char * STR_translate(const char *sptr);
+extern int bc_in_rom ;
+
+#ifndef TOSTRING
+    #define STRINGIFY(a) #a
+    #define TOSTRING(x) STRINGIFY(x)
+#endif
+
+#define PANIC if (bc_in_rom) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " PANIC")); return 1; }
+
+//#define CLOG(fmt, argv...) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) fmt), argv);}
+#define CLOG(fmt, ...) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " " fmt), ##__VA_ARGS__);}

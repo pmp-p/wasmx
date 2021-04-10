@@ -1,0 +1,45 @@
+//C
+int bc_in_rom;
+
+char RB[RB_SIZE];
+char SB[SB_SIZE];
+void_v outfunc;
+int OOM = 0;
+unsigned long SECTION_TEXT_SIZE = 0;
+unsigned long SECTION_TEXT_IDX = 0;
+
+void cdbg(const char *fmt, ...){
+    va_list argptr;
+    va_start (argptr, fmt );
+    vsnprintf_P(RB,RB_SIZE,fmt,argptr);
+    if (outfunc)
+        outfunc();
+
+    va_end (argptr);
+}
+
+void *BC_COPY(void *dest, const void *src, size_t n) {
+    if (bc_in_rom)
+        return memcpy_P(dest,src,n);
+    else
+        return memcpy(dest, src,n);
+}
+
+const char * STR_translate(const char *sptr) {
+    if (sptr) {
+        if (strlen(sptr)>2) {
+            if (sptr[0]=='@') {
+                uintptr_t romptr = strtol(&sptr[2], NULL, 16);
+                memcpy_P(&SB, romptr, sptr[1]);
+                SB[sptr[1]]=0;
+                goto done;
+            }
+        }
+    }
+// default to raw
+    strncpy( SB, sptr, SB_MAX);
+    SB[SB_MAX]=0;
+
+done:
+    return sptr;
+}
