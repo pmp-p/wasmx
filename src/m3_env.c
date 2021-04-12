@@ -804,7 +804,7 @@ void *  v_FindFunction  (IM3Module i_module, const char * const i_name)
 
             // same len check for char but not terminal zero
             uintptr_t romptr = strtol(&sptr[2], NULL, 16);
-            if (strncmp_P(i_name, romptr, matchlen ) == 0) {
+            if (strncmp_P(i_name, (const char *)romptr, matchlen ) == 0) {
                 return f;
             }
             #undef sptr

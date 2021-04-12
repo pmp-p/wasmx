@@ -5,6 +5,9 @@
 //  Copyright © 2019 Steven Massey. All rights reserved.
 //
 
+
+#include <string.h>
+
 #include "m3_exec.h"
 #include "m3_env.h"
 #include "m3_exception.h"
@@ -178,12 +181,12 @@ M3Result  FindAndLinkFunction      (IM3Module       io_module,
         STR_translate(f->import.fieldUtf8);
 
 rawstr:;
-        if ( strcmp (i_functionName, &SB) )
+        if ( strcmp (i_functionName, (const char *)SB) )
             continue;
 
         STR_translate(f->import.moduleUtf8);
 
-        if ( wildcardModule || !strcmp(i_moduleName, &SB)) {
+        if ( wildcardModule || !strcmp(i_moduleName, (const char *)SB)) {
                 result = LinkRawFunction (io_module, f, i_signature, i_function, i_userdata);
                 // ERROR
                 if (result) {

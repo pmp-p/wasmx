@@ -5,6 +5,7 @@
 //  Copyright © 2019 Steven Massey. All rights reserved.
 //
 
+#include "m3_core.h"
 #include "m3_env.h"
 #include "m3_compile.h"
 #include "m3_emit.h"

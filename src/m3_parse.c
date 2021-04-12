@@ -200,7 +200,8 @@ _               (Module_AddGlobal (io_module, & global, type, isMutable, true /*
         }
 
         FreeImportInfo (& import);
-        if (OOM) return;
+        if (OOM)
+            return m3Err_wasmMemoryOverflow;
     }
 
     _catch:

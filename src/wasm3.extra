@@ -17,8 +17,11 @@ typedef void (*void_v)();
 
 extern const char * STR_translate(const char *sptr);
 extern int bc_in_rom ;
+extern void *BC_COPY(void *dest, const void *src, size_t n);
 
 #ifndef TOSTRING
+    #define False false
+    #define True true
     #define STRINGIFY(a) #a
     #define TOSTRING(x) STRINGIFY(x)
 #endif

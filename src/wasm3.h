@@ -13,6 +13,13 @@
 #define M3_VERSION_REV   9
 #define M3_VERSION       "0.4.9"
 
+#if defined(__ARDUINO__) || defined(ARDUINO)
+    #include <Arduino.h>
+#else
+    #error "please provide avr/pgmspace arduino mock"
+#endif
+
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>

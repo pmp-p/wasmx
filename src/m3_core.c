@@ -6,11 +6,11 @@
 //
 
 #define M3_IMPLEMENT_ERROR_STRINGS
-#include "wasm3.h"
 
 #include "m3_core.h"
 #include "m3_env.h"
 #include "m3_core.extra"
+
 void m3_Abort(const char* message) {
 #ifdef DEBUG
     fprintf(stderr, "Error: %s\n", message);
@@ -297,83 +297,57 @@ M3Result  Read_f32  (f32 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 
 #endif
 
+
 M3Result  Read_u8  (u8 * o_value, bytes_t  * io_bytes, cbytes_t i_end)
 {
-    if (bc_in_rom){
-        if (io_bytes < i_end) {
-            BC_COPY(o_value, *io_bytes, sizeof(u8));
-            *io_bytes += sizeof(u8);
-            return m3Err_none;
-        } else {
-            cdbg("307:Read_u8 u/r io=%p end=%p",io_bytes,i_end);
-            return m3Err_wasmUnderrun;
-        }
-    } else {
-       const u8 * ptr = * io_bytes;
-
-        if (ptr < i_end)
-        {
-            * o_value = * ptr;
-            * io_bytes = ptr + 1;
-
-            return m3Err_none;
-        }
-        else return m3Err_wasmUnderrun;
+//factorize ?
+    if ( (cbytes_t)*io_bytes >= i_end) {
+CLOG("Read_u8 u/r io=%p end=%p", io_bytes, i_end);
+        return m3Err_wasmUnderrun;
     }
+
+    if (bc_in_rom){
+        BC_COPY(o_value, *io_bytes, sizeof(u8));
+        *io_bytes += sizeof(u8);
+    } else {
+        * o_value = **io_bytes;
+        * io_bytes += sizeof(u8);
+    }
+    return m3Err_none;
 }
 
 
 M3Result  Read_opcode  (m3opcode_t * o_value, bytes_t  * io_bytes, cbytes_t i_end)
 {
+//factorize ?
+    if ( (cbytes_t)*io_bytes >= i_end) {
+underrun:
+CLOG("Read_opcode u/r io=%p end=%p", io_bytes, i_end);
+        return m3Err_wasmUnderrun;
+    }
+
+    m3opcode_t opcode = 0;
+    u8 b = 0;
     //ROM
     if (bc_in_rom) {
-        if ( io_bytes < i_end)
-        {
-            u8 b;
-            Read_u8(&b, io_bytes, i_end);
-            m3opcode_t opcode = (m3opcode_t)b;
-
-    #ifndef d_m3CompileExtendedOpcode
-            if (UNLIKELY(opcode == 0xFC))
-            {
-                if (io_bytes < i_end)
-                {
-                    Read_u8(&b, io_bytes, i_end);
-                    opcode = (opcode << 8) | b;
-                }
-                else return m3Err_wasmUnderrun;
-            }
-    #endif
-            * o_value = opcode;
-
-            return m3Err_none;
-        }
-        else return m3Err_wasmUnderrun;
-    //RAM
+        Read_u8(&b, io_bytes, i_end);
+        opcode = (m3opcode_t)b;
     } else {
-        const u8 * ptr = * io_bytes;
-
-        if (ptr < i_end)
-        {
-            m3opcode_t opcode = * ptr++;
-
-    #ifndef d_m3CompileExtendedOpcode
-            if (UNLIKELY(opcode == 0xFC))
-            {
-                if (ptr < i_end)
-                {
-                    opcode = (opcode << 8) | (* ptr++);
-                }
-                else return m3Err_wasmUnderrun;
-            }
-    #endif
-            * o_value = opcode;
-            * io_bytes = ptr;
-
-            return m3Err_none;
-        }
-        else return m3Err_wasmUnderrun;
+        opcode = **io_bytes;
+        * io_bytes += sizeof(u8);
     }
+
+#ifndef d_m3CompileExtendedOpcode
+    if (UNLIKELY(opcode == 0xFC))
+    {
+        if ( (cbytes_t)*io_bytes >= i_end)
+            goto underrun;
+        Read_u8(&b, io_bytes, i_end);
+        opcode = (opcode << 8) | b;
+    }
+#endif
+    * o_value = opcode;
+    return m3Err_none;
 }
 
 
@@ -411,7 +385,8 @@ M3Result  ReadLebUnsigned  (u64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes,
             break;
         }
     }
-    if (ptr==io_bytes)
+//factorize ?
+    if ( ptr == (cbytes_t)io_bytes)
         return m3Err_wasmUnderrun;
 
     * o_value = value;
@@ -461,7 +436,8 @@ M3Result  ReadLebSigned  (i64 * o_value, u32 i_maxNumBits, bytes_t * io_bytes, c
             break;
         }
     }
-    if (ptr==io_bytes)
+
+    if ( ptr == (cbytes_t)io_bytes)
         return m3Err_wasmUnderrun;
 
     * o_value = value;

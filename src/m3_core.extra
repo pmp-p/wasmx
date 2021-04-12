@@ -1,4 +1,7 @@
 //C
+
+#include <string.h>
+
 int bc_in_rom;
 
 char RB[RB_SIZE];
@@ -8,7 +11,7 @@ int OOM = 0;
 unsigned long SECTION_TEXT_SIZE = 0;
 unsigned long SECTION_TEXT_IDX = 0;
 
-void cdbg(const char *fmt, ...){
+void cdbg(const char *fmt, ...) {
     va_list argptr;
     va_start (argptr, fmt );
     vsnprintf_P(RB,RB_SIZE,fmt,argptr);
@@ -30,7 +33,7 @@ const char * STR_translate(const char *sptr) {
         if (strlen(sptr)>2) {
             if (sptr[0]=='@') {
                 uintptr_t romptr = strtol(&sptr[2], NULL, 16);
-                memcpy_P(&SB, romptr, sptr[1]);
+                memcpy_P(&SB, (const void *__restrict)romptr, sptr[1]);
                 SB[sptr[1]]=0;
                 goto done;
             }

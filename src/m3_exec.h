@@ -22,7 +22,7 @@
 //  and the second operand (the top of the stack) is in a register
 //------------------------------------------------------------------------------------------------------
 
-
+#include "wasm3.h"
 #include "m3_math_utils.h"
 #include "m3_compile.h"
 #include "m3_env.h"
@@ -744,7 +744,7 @@ d_m3Op  (Entry)
 
         if (function->constants)
         {
-            if (function->constants > ROM_BASE) {
+            if (function->constants > (void *)ROM_BASE) {
                 memcpy_P(stack, function->constants, function->numConstantBytes);
             } else {
                 memcpy (stack, function->constants, function->numConstantBytes);
