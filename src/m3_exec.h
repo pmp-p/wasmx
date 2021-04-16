@@ -32,7 +32,7 @@
 #include <limits.h>
 
 d_m3BeginExternC
-
+#define CompileFunction Compile_Function
 #define rewrite_op(OP)             * ((void **) (_pc-1)) = (void*)(OP)
 
 #define immediate(TYPE)            * ((TYPE *) _pc++)
@@ -553,7 +553,7 @@ d_m3Op  (CallIndirect)
             {
                 if (UNLIKELY(not function->compiled)) {
 cdbg(PSTR("Compile_Function-3 (UNLIKELY)"));
-                    r = Compile_Function (function);
+                    r = CompileFunction (function);
                 }
                 if (LIKELY(not r))
                 {
@@ -702,7 +702,7 @@ d_m3Op  (Compile)
     // check to see if function was compiled since this operation was emitted.
     if (UNLIKELY(not function->compiled)) {
 CLOG("Compile (UNLIKELY)");
-        result = Compile_Function (function);
+        result = CompileFunction (function);
     }
 
     if (not result) {

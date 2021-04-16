@@ -18,6 +18,9 @@
 
 #define WASI 1
 
+#if defined(ARDUINO)
+    #define d_m3HasWASI (1)
+#endif
 
 #ifndef d_m3HasWASI
     #error "d_m3HasWASI d_m3HasTracer"

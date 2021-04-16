@@ -14,6 +14,7 @@
 
 d_m3BeginExternC
 
+
 //---------------------------------------------------------------------------------------------------------------------------------
 
 typedef struct M3MemoryInfo
@@ -49,9 +50,6 @@ typedef struct M3DataSegment
 }
 M3DataSegment;
 
-
-void FreeImportInfo (M3ImportInfo * i_info);
-
 //---------------------------------------------------------------------------------------------------------------------------------
 
 typedef struct M3Global
@@ -66,6 +64,7 @@ typedef struct M3Global
         f32 f32Value;
 #endif
     };
+
     cstr_t                  name;
     bytes_t                 initExpr;       // wasm code
     u32                     initExprSize;
@@ -74,7 +73,6 @@ typedef struct M3Global
     bool                    isMutable;
 }
 M3Global;
-typedef M3Global *          IM3Global;
 
 
 //---------------------------------------------------------------------------------------------------------------------------------
@@ -91,9 +89,7 @@ typedef struct M3Module
     u32                     numFuncTypes;
     IM3FuncType *           funcTypes;              // array of pointers to list of FuncTypes
 
-    u32                     numImports;
-    //IM3Function *           imports;   b          // notice: "I" prefix. imports are pointers to functions in another module.
-
+    u32                     numFuncImports;
     u32                     numFunctions;
     M3Function *            functions;
 
@@ -127,13 +123,15 @@ M3Result                    Module_AddGlobal            (IM3Module io_module, IM
 M3Result                    Module_AddFunction          (IM3Module io_module, u32 i_typeIndex, IM3ImportInfo i_importInfo /* can be null */);
 IM3Function                 Module_GetFunction          (IM3Module i_module, u32 i_functionIndex);
 
+void                        FreeImportInfo              (M3ImportInfo * i_info);
+
 //---------------------------------------------------------------------------------------------------------------------------------
 
 typedef struct M3Environment
 {
 //    struct M3Runtime *      runtimes;
 
-    IM3FuncType             funcTypes;                          // linked list
+    IM3FuncType             funcTypes;                          // linked list of unique M3FuncType structs that can be compared using pointer-equivalence
 
     IM3FuncType             retFuncTypes [c_m3Type_unknown];    // these 'point' to elements in the linked list above.
                                                                 // the number of elements must match the basic types as per M3ValueType
