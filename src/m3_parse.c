@@ -562,7 +562,6 @@ _try {
     //module->hasWasmCodeCopy = false;
     module->environment = i_environment;
 
-//    const u8 * ini_pos = i_bytes;
     const u8 * pos = i_bytes;
     const u8 * end = pos + i_numBytes;
 
@@ -571,9 +570,7 @@ _try {
 
     u32 magic, version;
 _   (Read_u32 (& magic, & pos, end));
-    //cdbg("Magic %x at %d", magic, pos-ini_pos );
 _   (Read_u32 (& version, & pos, end));
-    //cdbg("Version %x at %d", version, pos-ini_pos );
     _throwif (m3Err_wasmMalformed, magic != 0x6d736100);
     _throwif (m3Err_incompatibleWasmVersion, version != 1);
 
@@ -584,7 +581,6 @@ _   (Read_u32 (& version, & pos, end));
         u8 section;
 
 _       (ReadLEB_u7 (& section, & pos, end));
-//cdbg("\r\n\r\nsection %x at %d", section, pos-ini_pos );
 
         if (section > previousSection or                    // from the spec: sections must appear in order
             section == 0 or                                 // custom section
@@ -597,7 +593,6 @@ _           (ReadLEB_u32 (& sectionLength, & pos, end));
 
 _           (ParseModuleSection (module, section, pos, sectionLength));
             pos += sectionLength;
-//            cdbg("Parsed len=%d at %d", sectionLength, pos-ini_pos );
 
             if (OOM)
                 return m3Err_wasmMemoryOverflow;

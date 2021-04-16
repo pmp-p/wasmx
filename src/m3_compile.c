@@ -60,7 +60,6 @@ static const u16 c_slotUnused = 0xffff;
 M3Result  AcquireCompilationCodePage  (IM3Compilation o, IM3CodePage * o_codePage)
 {
     M3Result result = m3Err_none;
-
     IM3CodePage page = AcquireCodePage (o->runtime);
 
     if (page)

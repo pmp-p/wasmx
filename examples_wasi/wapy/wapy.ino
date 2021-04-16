@@ -20,22 +20,23 @@
 
 #if defined(ARDUINO)
     #define d_m3HasWASI (1)
+    #define WASM_STACK_SLOTS    512
+    // wasm3 --stack-size 4096 can run wapy header only test
+    #define NATIVE_STACK_SIZE   (4*1024)
+
+    // For (most) devices that cannot allocate a 64KiB wasm page
+
+    //#define WASM_MEMORY_LIMIT   4096 NO BLINK
+    //#define WASM_MEMORY_LIMIT   8192+1024  // BLINK
+    #define WASM_MEMORY_LIMIT   2*32768
+#else
+        #define WASM_STACK_SLOTS    512
+        #define NATIVE_STACK_SIZE   4*1024
+        #define WASM_MEMORY_LIMIT   3*32768
 #endif
 
-#ifndef d_m3HasWASI
-    #error "d_m3HasWASI d_m3HasTracer"
-#endif
 
-#define WASM_STACK_SLOTS    512
 
-// wasm3 --stack-size 4096 can run wapy header only test
-#define NATIVE_STACK_SIZE   (4*1024)
-
-// For (most) devices that cannot allocate a 64KiB wasm page
-
-//#define WASM_MEMORY_LIMIT   4096 NO BLINK
-//#define WASM_MEMORY_LIMIT   8192+1024  // BLINK
-#define WASM_MEMORY_LIMIT   32768
 
 #include "wasmx.h"
 

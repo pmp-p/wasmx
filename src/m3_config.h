@@ -109,7 +109,7 @@
 # endif
 
 # ifndef d_m3LogNativeStack
-#   define d_m3LogNativeStack                   0       // track the memory usage of the C-stack
+#   define d_m3LogNativeStack                   1       // track the memory usage of the C-stack
 # endif
 
 
