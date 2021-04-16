@@ -10,6 +10,7 @@
 
 #include "m3_code.h"
 #include "m3_exec_defs.h"
+#include "m3_function.h"
 
 d_m3BeginExternC
 
@@ -27,19 +28,15 @@ enum
     c_waOp_getLocal             = 0x20,
     c_waOp_setLocal             = 0x21,
     c_waOp_teeLocal             = 0x22,
+
+    c_waOp_getGlobal            = 0x23,
+
+    c_waOp_i32_const            = 0x41,
+    c_waOp_i64_const            = 0x42,
+    c_waOp_f32_const            = 0x43,
+    c_waOp_f64_const            = 0x44,
 };
 
-typedef struct M3FuncType
-{
-    struct M3FuncType *     next;
-
-    u32                     numRets;
-    u32                     numArgs;
-    u8                      types[];        // returns, then args
-}
-M3FuncType;
-
-typedef M3FuncType *        IM3FuncType;
 
 #define d_FuncRetType(ftype,i)  ((ftype)->types[(i)])
 #define d_FuncArgType(ftype,i)  ((ftype)->types[(ftype)->numRets + (i)])

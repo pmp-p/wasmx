@@ -14,180 +14,10 @@
 #include "m3_info.h"
 
 
-M3Result AllocFuncType (IM3FuncType * o_functionType, u32 i_numTypes)
-{
-    *o_functionType = (IM3FuncType) m3_Malloc (sizeof (M3FuncType) + i_numTypes);
-    return (*o_functionType) ? m3Err_none : m3Err_mallocFailed;
-}
-
-
-bool  AreFuncTypesEqual  (const IM3FuncType i_typeA, const IM3FuncType i_typeB)
-{
-    if (i_typeA->numRets == i_typeB->numRets && i_typeA->numArgs == i_typeB->numArgs)
-    {
-        return (memcmp (i_typeA->types, i_typeB->types, i_typeA->numRets + i_typeA->numArgs) == 0);
-    }
-
-    return false;
-}
-
-
 void Runtime_ReleaseCodePages (IM3Runtime i_runtime)
 {
 
 }
-
-
-void  Function_Release  (IM3Function i_function)
-{
-    m3_Free (i_function->constants);
-
-    for (int i = 0; i < i_function->numNames; i++)
-    {
-        // name can be an alias of fieldUtf8
-        if (i_function->names[i] != i_function->import.fieldUtf8)
-        {
-            m3_Free (i_function->names[i]);
-        }
-    }
-
-    FreeImportInfo (& i_function->import);
-
-    if (i_function->ownsWasmCode)
-        m3_Free (i_function->wasm);
-
-    // Function_FreeCompiledCode (func);
-
-#   if (d_m3EnableCodePageRefCounting)
-    {
-        m3_Free (i_function->codePageRefs);
-        i_function->numCodePageRefs = 0;
-    }
-#   endif
-}
-
-
-void  Function_FreeCompiledCode (IM3Function i_function)
-{
-#   if (d_m3EnableCodePageRefCounting)
-    {
-        i_function->compiled = NULL;
-
-        while (i_function->numCodePageRefs--)
-        {
-            IM3CodePage page = i_function->codePageRefs [i_function->numCodePageRefs];
-
-            if (--(page->info.usageCount) == 0)
-            {
-//                printf ("free %p\n", page);
-            }
-        }
-
-        m3_Free (i_function->codePageRefs);
-
-        Runtime_ReleaseCodePages (i_function->module->runtime);
-    }
-#   endif
-}
-
-
-
-cstr_t  m3_GetFunctionName  (IM3Function i_function)
-{
-    u16 numNames = 0;
-    cstr_t *names = GetFunctionNames(i_function, &numNames);
-    if (numNames > 0)
-        return names[0];
-    else
-        return "<unnamed>";
-}
-
-IM3Module  m3_GetFunctionModule  (IM3Function i_function)
-{
-    return i_function ? i_function->module : NULL;
-}
-
-
-cstr_t *  GetFunctionNames  (IM3Function i_function, u16 * o_numNames)
-{
-    if (!i_function || !o_numNames)
-        return NULL;
-
-    if (i_function->import.fieldUtf8)
-    {
-        *o_numNames = 1;
-        return &i_function->import.fieldUtf8;
-    }
-    else
-    {
-        *o_numNames = i_function->numNames;
-        return i_function->names;
-    }
-}
-
-
-cstr_t  GetFunctionImportModuleName  (IM3Function i_function)
-{
-    return (i_function->import.moduleUtf8) ? i_function->import.moduleUtf8 : "";
-}
-
-
-u32  GetFunctionNumArgs  (IM3Function i_function)
-{
-    u32 numArgs = 0;
-
-    if (i_function)
-    {
-        if (i_function->funcType)
-            numArgs = i_function->funcType->numArgs;
-    }
-
-    return numArgs;
-}
-
-
-u32  GetFunctionNumReturns  (IM3Function i_function)
-{
-    u32 numReturns = 0;
-
-    if (i_function)
-    {
-        if (i_function->funcType)
-            numReturns = i_function->funcType->numRets;
-    }
-
-    return numReturns;
-}
-
-
-u8  GetFunctionReturnType  (IM3Function i_function, u32 i_index)
-{
-    u8 type = c_m3Type_none;
-
-    if (i_index < GetFunctionNumReturns (i_function))
-    {
-        type = i_function->funcType->types [i_index];
-    }
-
-    return type;
-}
-
-
-u32  GetFunctionNumArgsAndLocals (IM3Function i_function)
-{
-    if (i_function)
-        return i_function->numLocals + GetFunctionNumArgs (i_function);
-    else
-        return 0;
-}
-
-
-void FreeImportInfo (M3ImportInfo * i_info)
-{
-    m3_Free (i_info->moduleUtf8);
-    m3_Free (i_info->fieldUtf8);
-}
-
 
 IM3Environment  m3_NewEnvironment  ()
 {
@@ -706,7 +536,7 @@ _               (ReadLEB_u32 (& functionIndex, & bytes, end));
 M3Result  m3_RunStart  (IM3Module io_module)
 {
     M3Result result = m3Err_none;
-cdbg(PSTR("m3_RunStart"));
+CLOG("m3_RunStart");
     if (io_module and io_module->startFunction >= 0)
     {
 
@@ -714,7 +544,7 @@ cdbg(PSTR("m3_RunStart"));
 
         if (not function->compiled)
         {
-cdbg(PSTR("Compile_Function-1"));
+CLOG("Compile_Function()");
 _           (Compile_Function (function));
         }
 
@@ -745,13 +575,8 @@ M3Result  m3_LoadModule  (IM3Runtime io_runtime, IM3Module io_module)
         M3Memory * memory = & io_runtime->memory;
 
 _       (InitMemory (io_runtime, io_module));
-//CLOG("    InitMemory");
 _       (InitGlobals (io_module));
-//CLOG("    InitGlobals");
-
 _       (InitDataSegments (memory, io_module));
-//CLOG("    InitDataSegments");
-
 _       (InitElements (io_module));
 
         io_module->next = io_runtime->modules;
@@ -767,6 +592,78 @@ _       (InitElements (io_module));
         io_module->runtime = NULL;
 
     _catch: return result;
+}
+
+
+IM3Global  m3_FindGlobal  (IM3Module               io_module,
+                           const char * const      i_globalName)
+{
+CLOG("m3_FindGlobal %s", i_globalName);
+    // Search exports
+    for (u32 i = 0; i < io_module->numGlobals; ++i)
+    {
+        IM3Global g = & io_module->globals [i];
+        if (g->name and strcmp (g->name, i_globalName) == 0)
+        {
+            return g;
+        }
+    }
+
+    // Search imports
+    for (u32 i = 0; i < io_module->numGlobals; ++i)
+    {
+        IM3Global g = & io_module->globals [i];
+
+        if (g->import.moduleUtf8 and g->import.fieldUtf8)
+        {
+            if (strcmp (g->import.fieldUtf8, i_globalName) == 0)
+            {
+                return g;
+            }
+        }
+    }
+    return NULL;
+}
+
+M3Result  m3_GetGlobal  (IM3Global                 i_global,
+                         IM3TaggedValue            o_value)
+{
+    if (not i_global) return m3Err_globalLookupFailed;
+
+    switch (i_global->type) {
+    case c_m3Type_i32: o_value->value.i32 = i_global->intValue; break;
+    case c_m3Type_i64: o_value->value.i64 = i_global->intValue; break;
+    case c_m3Type_f32: o_value->value.f32 = i_global->f32Value; break;
+    case c_m3Type_f64: o_value->value.f64 = i_global->f64Value; break;
+    default: return m3Err_invalidTypeId;
+    }
+
+    o_value->type = (M3ValueType)(i_global->type);
+    return m3Err_none;
+}
+
+M3Result  m3_SetGlobal  (IM3Global                 i_global,
+                         const IM3TaggedValue      i_value)
+{
+    if (not i_global) return m3Err_globalLookupFailed;
+    // TODO: if (not g->isMutable) return m3Err_globalNotMutable;
+
+    if (i_global->type != i_value->type) return m3Err_globalTypeMismatch;
+
+    switch (i_value->type) {
+    case c_m3Type_i32: i_global->intValue = i_value->value.i32; break;
+    case c_m3Type_i64: i_global->intValue = i_value->value.i64; break;
+    case c_m3Type_f32: i_global->f32Value = i_value->value.f32; break;
+    case c_m3Type_f64: i_global->f64Value = i_value->value.f64; break;
+    default: return m3Err_invalidTypeId;
+    }
+
+    return m3Err_none;
+}
+
+M3ValueType  m3_GetGlobalType  (IM3Global          i_global)
+{
+    return (i_global) ? (M3ValueType)(i_global->type) : c_m3Type_none;
 }
 
 
@@ -792,7 +689,7 @@ void *  v_FindFunction  (IM3Module i_module, const char * const i_name)
 
 
             if ( (matchlen<2) || (sptr[0]!='@')) {
-                cdbg("v_FindFunction(%p)", sptr );
+
                 if (strcmp (f->names [j], i_name) == 0)
                     return f;
                 continue;
@@ -810,6 +707,8 @@ void *  v_FindFunction  (IM3Module i_module, const char * const i_name)
             #undef sptr
         }
     }
+    cdbg("v_FindFunction(%s) 404", i_name );
+
     return NULL;
 }
 
@@ -828,18 +727,18 @@ M3Result  m3_FindFunction  (IM3Function * o_function, IM3Runtime i_runtime, cons
     if (function) {
         cdbg(PSTR("\r\nm3_FindFunction(%s)->function"), i_functionName);
         if (not function->compiled) {
-            cdbg(PSTR("Compile_Function-2 m3_FindFunction(%s)"), i_functionName);
+CLOG("Compile_Function-2 m3_FindFunction(%s)", i_functionName);
             result = Compile_Function (function);
 
             if (result) {
                 function = NULL;
-                cdbg(PSTR("m3_FindFunction(%s)-> INVALID"), i_functionName);
+CLOG("m3_FindFunction(%s)-> INVALID", i_functionName);
 #pragma message "why ?"
                 result = 0;
             }
         }
     } else {
-
+CLOG("m3_FindFunction(%s)-> ERROR", i_functionName);
         result = ErrorModule (m3Err_functionLookupFailed, i_runtime->modules, "'%s'", i_functionName);
     }
 

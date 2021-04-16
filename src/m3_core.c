@@ -9,7 +9,7 @@
 
 #include "m3_core.h"
 #include "m3_env.h"
-#include "m3_core.extra"
+#include "extra/m3_core.extra"
 
 void m3_Abort(const char* message) {
 #ifdef DEBUG

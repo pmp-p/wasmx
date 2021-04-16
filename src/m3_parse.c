@@ -354,8 +354,10 @@ _                   (NormalizeType (& normalType, wasmType));
                 func->wasmEnd = i_bytes;
                 //func->ownsWasmCode = io_module->hasWasmCodeCopy;
                 func->numLocals = numLocals;
+            } else {
+CLOG("ParseSection_Code wasmSectionOverrun");
+                _throw (m3Err_wasmSectionOverrun);
             }
-            else _throw (m3Err_wasmSectionOverrun);
         }
     }
 

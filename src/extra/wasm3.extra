@@ -1,29 +1,35 @@
 #define ROM_BASE 0x40000000
+extern int OOM;
+
 #define STRCOMPRESS (1)
 
 #define RB_SIZE 128
 #define RB_MAX RB_SIZE-1
+extern char RB[RB_SIZE];
 
+extern void cdbg(const char *fmt, ...);
+
+// string handling  "SB" means "String Buffer"
 #define SB_SIZE 256
 #define SB_MAX SB_SIZE-1
-
-extern int OOM;
 extern unsigned long SECTION_TEXT_IDX;
 extern unsigned long SECTION_TEXT_SIZE;
-extern char RB[RB_SIZE];
 extern char SB[SB_SIZE];
-extern void cdbg(const char *fmt, ...);
-typedef void (*void_v)();
-
 extern const char * STR_translate(const char *sptr);
 extern int bc_in_rom ;
 extern void *BC_COPY(void *dest, const void *src, size_t n);
+
+// stdout
+typedef void (*void_v)();
+extern void_v COUT_FUNCTIONPTR;
+
 
 #ifndef TOSTRING
     #define False false
     #define True true
     #define STRINGIFY(a) #a
     #define TOSTRING(x) STRINGIFY(x)
+    #define LENGTH(x)  (sizeof(x) / sizeof((x)[0]))
 #endif
 
 #define PANIC if (bc_in_rom) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " PANIC")); return 1; }

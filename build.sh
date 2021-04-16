@@ -1,13 +1,33 @@
 #!/bin/bash
+
+URL_EpoxyDuino="https://github.com/pmp-p/EpoxyDuino.git"
+
+
 CC=${CC:-clang}
 CXX=${CC}++
 
-CDEFS="-DEPOXY_DUINO -D__ARDUINO__=1 -I./EpoxyDuino/ -Wno-deprecated"
+CDEFS="-DEPOXY_DUINO -Dd_m3HasWASI=1 -Dd_m3HasTracer=1 -D__ARDUINO__=1 -I./EpoxyDuino/ -I./src/ -Wno-deprecated"
+
 BUILD=build/$(arch)
 mkdir -p $BUILD
 
 OK=true
-LIB=false
+
+
+
+if [ -d EpoxyDuino ]
+then
+    if [ -f localdev ]
+    then
+        echo "using local version of $URL_EpoxyDuino"
+    else
+        cd EpoxyDuino
+        git pull --ff-only
+        cd ..
+    fi
+else
+    git clone $URL_EpoxyDuino
+fi
 
 
 for obj in src/*.c EpoxyDuino/*.cpp
@@ -16,13 +36,6 @@ do
     if echo $obj|grep -q cpp$
     then
         EXT="cpp"
-        if $LIB
-        then
-            if echo $obj|grep -q main.cpp$
-            then
-                continue
-            fi
-        fi
     fi
 
     bname=$(basename $obj .$EXT)
@@ -47,16 +60,9 @@ if $OK
 then
     rm $BUILD/wapy.out
 
-if $LIB
-then
     ar rcs ${BUILD}/libwasmx.a $BUILD/*.o
-    cat EpoxyDuino/main.cpp examples_wasi/wapy/wapy.ino > $BUILD/ino.cpp
-    ${CXX} ${CDEFS} -x c++ -o $BUILD/wapy $BUILD/ino.cpp -L${BUILD} -lwasmx
-else
-    ar rcs ${BUILD}/libwasmx.a $BUILD/*.o
-    #${CXX} ${CDEFS} -x c++ -o $BUILD/wapy examples_wasi/wapy/wapy.ino $BUILD/*.o
     ${CXX} ${CDEFS} -x c++ -o $BUILD/wapy.out examples_wasi/wapy/wapy.ino -L${BUILD} -lwasmx
-fi
+
     echo running exe
 
     ./$BUILD/wapy.out

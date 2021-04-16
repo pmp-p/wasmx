@@ -33,24 +33,24 @@
 
 d_m3BeginExternC
 
-# define rewrite_op(OP)             * ((void **) (_pc-1)) = (void*)(OP)
+#define rewrite_op(OP)             * ((void **) (_pc-1)) = (void*)(OP)
 
-# define immediate(TYPE)            * ((TYPE *) _pc++)
-# define skip_immediate(TYPE)       (_pc++)
+#define immediate(TYPE)            * ((TYPE *) _pc++)
+#define skip_immediate(TYPE)       (_pc++)
 
-# define slot(TYPE)                 * (TYPE *) (_sp + immediate (i32))
-# define slot_ptr(TYPE)             (TYPE *) (_sp + immediate (i32))
+#define slot(TYPE)                 * (TYPE *) (_sp + immediate (i32))
+#define slot_ptr(TYPE)             (TYPE *) (_sp + immediate (i32))
 
 
-# if d_m3EnableOpProfiling
-                                    d_m3RetSig  profileOp   (d_m3OpSig, cstr_t i_operationName);
-#   define nextOp()                 return profileOp (d_m3OpAllArgs, __FUNCTION__)
-# elif d_m3EnableOpTracing
-                                    d_m3RetSig  debugOp     (d_m3OpSig, cstr_t i_operationName);
-#   define nextOp()                 return debugOp (d_m3OpAllArgs, __FUNCTION__)
-# else
-#   define nextOp()                 nextOpDirect()
-# endif
+#if d_m3EnableOpProfiling
+    d_m3RetSig  profileOp   (d_m3OpSig, cstr_t i_operationName);
+    #define nextOp()                 return profileOp (d_m3OpAllArgs, __FUNCTION__)
+#elif d_m3EnableOpTracing
+    d_m3RetSig  debugOp     (d_m3OpSig, cstr_t i_operationName);
+    #define nextOp()                 return debugOp (d_m3OpAllArgs, __FUNCTION__)
+#else
+    #define nextOp()                 nextOpDirect()
+#endif
 
 #define jumpOp(PC)                  jumpOpDirect(PC)
 
@@ -686,7 +686,7 @@ d_m3Op  (MemGrow)
 }
 
 
-// it's a debate: should the compilation be trigger be the caller or callee page.
+// it's a debate: should the compilation be triggered by the caller or callee page.
 // it's a much easier to put it in the caller pager. if it's in the callee, either the entire page
 // has be left dangling or it's just a stub that jumps to a newly acquired page.  In Gestalt, I opted
 // for the stub approach. Stubbing makes it easier to dynamically free the compilation. You can also
@@ -701,19 +701,20 @@ d_m3Op  (Compile)
 
     // check to see if function was compiled since this operation was emitted.
     if (UNLIKELY(not function->compiled)) {
-
-        cdbg(PSTR("Compile_Function-4 (UNLIKELY)"));
+CLOG("Compile (UNLIKELY)");
         result = Compile_Function (function);
     }
 
-    if (not result)
-    {
+    if (not result) {
         // patch up compiled pc and call rewritten op_Call
         * ((void**) --_pc) = (void*) (function->compiled);
         --_pc;
-        nextOpDirect ();
+CLOG("Compile_Function-4- EXEC ?");
+        nextOpDirect (); // return nextOpImpl();
+CLOG("Compile_Function-4- EXEC-SET!");
+    } else {
+CLOG("Compile_Function-4- FAIL");
     }
-
     newTrap (result);
 }
 
@@ -737,7 +738,7 @@ d_m3Op  (Entry)
 #if defined(DEBUG)
         function->hits++;
 #endif
-        u8 * stack = (u8 *) ((m3slot_t *) _sp + function->numArgSlots);
+        u8 * stack = (u8 *) ((m3slot_t *) _sp + function->numRetAndArgSlots);
 
         memset (stack, 0x0, function->numLocalBytes);
         stack += function->numLocalBytes;

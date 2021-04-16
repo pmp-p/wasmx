@@ -2358,12 +2358,13 @@ void  SetupCompilation (IM3Compilation o)
 }
 
 
-M3Result  Compile_Function  (IM3Function io_function)
-{
+M3Result
+Compile_Function(IM3Function io_function) {
     IM3FuncType ft = io_function->funcType;
 
     M3Result result = m3Err_none;
 
+    const char *sptr = STR_translate(m3_GetFunctionName(io_function));
     m3log (compile, "compiling: '%s'; wasm-size: %d; numArgs: %d; return: %s",
            sptr, (u32) (io_function->wasmEnd - io_function->wasm), GetFunctionNumArgs (io_function),
            c_waTypes [GetSingleRetType(ft)]);
@@ -2372,23 +2373,25 @@ M3Result  Compile_Function  (IM3Function io_function)
 
     IM3Compilation o = & runtime->compilation;
 
-    const char *sptr = STR_translate(m3_GetFunctionName(io_function));
-
     SetupCompilation (o);
-CLOG("Compile_Function ->runtime SET");
+
     o->runtime  = runtime;
     o->module   = io_function->module;
     o->function = io_function;
     o->wasm     = io_function->wasm;
     o->wasmEnd  = io_function->wasmEnd;
 
+
+
 _try {
     // skip over code size. the end was already calculated during parse phase
     u32 size;
-_   (ReadLEB_u32 (& size, & o->wasm, o->wasmEnd));                  d_m3Assert (size == (o->wasmEnd - o->wasm))
-
+CLOG("       Compile_Function 1 %s %" PRIxPTR " %d",sptr, o->wasm, o->wasmEnd );
+_   (ReadLEB_u32 (& size, & o->wasm, o->wasmEnd));
+    d_m3Assert (size == (o->wasmEnd - o->wasm))
+//CLOG("       Compile_Function 2");
 _   (AcquireCompilationCodePage (o, & o->page));
-
+//CLOG("       Compile_Function 3");
     pc_t pc = GetPagePC (o->page);
 
     // push the arg types to the type stack
@@ -2399,25 +2402,20 @@ _   (AcquireCompilationCodePage (o, & o->page));
     u32 numArgs = GetFunctionNumArgs (o->function);
     u32 numRets = GetFunctionNumReturns(o->function);
 
-    for (u32 i = 0; i < numArgs; ++i)
-    {
+    for (u32 i = 0; i < numArgs; ++i) {
         u8 type = ft->types [numRets + i];
 _       (PushAllocatedSlot (o, type));
 
-        if (i < numArgs - 1)
-        {
+        if (i < numArgs - 1) {
             // prevent allocator fill-in
             o->firstDynamicSlotIndex += argSlotCount;
-        }
-        else
-        {
+        } else {
             // final arg only allocates its natural width when using 32-bit slots
             o->firstDynamicSlotIndex += GetTypeNumSlots (type);
         }
     }
-
-
-    o->function->numArgSlots = o->firstLocalSlotIndex = o->firstDynamicSlotIndex;
+//CLOG("       Compile_Function 4");
+    o->function->numRetAndArgSlots = o->firstLocalSlotIndex = o->firstDynamicSlotIndex;
 _   (CompileLocals (o));
 
 
@@ -2441,7 +2439,7 @@ _   (EmitOp (o, op_Entry));
 
 _   (Compile_BlockStatements (o));
 
-CLOG("compiled: %s %d", &SB[2], pc);
+CLOG("Compiled: %s %" PRIxPTR, &SB, pc);
 
     io_function->compiled = pc;
 

@@ -128,9 +128,10 @@ _   (SignatureToFuncType (& ftype, i_linkingSignature));
 }
 
 
-M3Result  LinkRawFunction  (IM3Module io_module,  IM3Function io_function, ccstr_t signature,  const void * i_function, const void * i_userdata)
-{
-    M3Result result = m3Err_none;                                                 d_m3Assert (io_module->runtime);
+M3Result
+LinkRawFunction(IM3Module io_module,  IM3Function io_function, ccstr_t signature,  const void * i_function, const void * i_userdata) {
+    M3Result result = m3Err_none;
+    d_m3Assert (io_module->runtime);
 
 _try {
 _   (ValidateSignature (io_function, signature));
@@ -155,17 +156,23 @@ CLOG("    LinkRawFunction");
     return result;
 }
 
-M3Result  FindAndLinkFunction      (IM3Module       io_module,
-                                    ccstr_t         i_moduleName,
-                                    ccstr_t         i_functionName,
-                                    ccstr_t         i_signature,
-                                    voidptr_t       i_function,
-                                    voidptr_t       i_userdata)
-{
+M3Result
+FindAndLinkFunction(IM3Module       io_module,
+                    ccstr_t         i_moduleName,
+                    ccstr_t         i_functionName,
+                    ccstr_t         i_signature,
+                    voidptr_t       i_function,
+                    voidptr_t       i_userdata) {
+
+    if (!io_module) {
+        CLOG("FindAndLinkFunction: No module for %s.%s", i_moduleName, i_functionName);
+        return m3Err_missingCompiledCode;
+    }
     M3Result result = m3Err_functionLookupFailed;
 #pragma message "TODO STR_ROM"
 
-    bool wildcardModule = (strcmp (i_moduleName, "*") == 0);
+    bool wildcardModule = (strcmp("*", i_moduleName) == 0);
+
     int matchlen = strlen(i_functionName);
 
     for (u32 i = 0; i < io_module->numFunctions; ++i) {
@@ -191,13 +198,10 @@ rawstr:;
                 // ERROR
                 if (result) {
                     CLOG("  FindAndLinkFunctionR?M(%s.%s)-> ERROR", SB, i_functionName);
-// ?
-                    break;
                 } else {
                     CLOG("  FindAndLinkFunctionR?M(%s.%s)-> VALID", SB, i_functionName);
-
                 }
-#pragma message "break here ?"
+                break;
         } else {
             CLOG("  FindAndLinkFunctionR?M(%s.%s)-> INVALID", SB, i_functionName);
         }
@@ -206,13 +210,17 @@ rawstr:;
     return result;
 }
 
-M3Result  m3_LinkRawFunctionEx  (IM3Module            io_module,
-                                const char * const    i_moduleName,
-                                const char * const    i_functionName,
-                                const char * const    i_signature,
-                                M3RawCall             i_function,
-                                const void *          i_userdata)
-{
+M3Result
+m3_LinkRawFunctionEx(   IM3Module             io_module,
+                        const char * const    i_moduleName,
+                        const char * const    i_functionName,
+                        const char * const    i_signature,
+                        M3RawCall             i_function,
+                        const void *          i_userdata) {
+if (!i_moduleName) {
+    CLOG("FindAndLinkFunctionEx: %s.%s", i_moduleName, i_functionName);
+    return m3Err_functionLookupFailed;
+}
     return FindAndLinkFunction (io_module, i_moduleName, i_functionName, i_signature, (voidptr_t)i_function, i_userdata);
 }
 

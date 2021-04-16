@@ -6,7 +6,7 @@ int bc_in_rom;
 
 char RB[RB_SIZE];
 char SB[SB_SIZE];
-void_v outfunc;
+void_v COUT_FUNCTIONPTR;
 int OOM = 0;
 unsigned long SECTION_TEXT_SIZE = 0;
 unsigned long SECTION_TEXT_IDX = 0;
@@ -15,9 +15,8 @@ void cdbg(const char *fmt, ...) {
     va_list argptr;
     va_start (argptr, fmt );
     vsnprintf_P(RB,RB_SIZE,fmt,argptr);
-    if (outfunc)
-        outfunc();
-
+    if (COUT_FUNCTIONPTR)
+        COUT_FUNCTIONPTR();
     va_end (argptr);
 }
 

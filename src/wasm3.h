@@ -16,7 +16,30 @@
 #if defined(__ARDUINO__) || defined(ARDUINO)
     #include <Arduino.h>
 #else
-    #error "please provide avr/pgmspace arduino mock"
+    #define PGM_P const char *
+    #define PGM_VOID_P const void *
+    #define PSTR(str) (str)
+
+    #define PROGMEM
+
+    #define pgm_read_byte(p) (* (const uint8_t*) (p))
+    #define pgm_read_word(p) (* (const uint16_t*) (p))
+    #define pgm_read_dword(p) (* (const uint32_t*) (p))
+    #define pgm_read_float(p) (* (const float*) (p))
+    #define pgm_read_ptr(p) (* (const void* const*) (p))
+
+    #define strlen_P strlen
+    #define strcat_P strcat
+    #define strcpy_P strcpy
+    #define strncpy_P strncpy
+    #define strcmp_P strcmp
+    #define strncmp_P strncmp
+    #define strcasecmp_P strcasecmp
+    #define strchr_P strchr
+    #define strrchr_P strrchr
+    #define memcpy_P memcpy
+    #define vsnprintf_P vsnprintf
+
 #endif
 
 
@@ -29,7 +52,7 @@
 extern "C" {
 #endif
 
-#include "wasm3.extra"
+#include "extra/wasm3.extra"
 
 typedef const char *    M3Result;
 
@@ -37,6 +60,7 @@ struct M3Environment;   typedef struct M3Environment *  IM3Environment;
 struct M3Runtime;       typedef struct M3Runtime *      IM3Runtime;
 struct M3Module;        typedef struct M3Module *       IM3Module;
 struct M3Function;      typedef struct M3Function *     IM3Function;
+struct M3Global;        typedef struct M3Global *       IM3Global;
 
 typedef struct M3ErrorInfo
 {
@@ -82,6 +106,18 @@ typedef enum M3ValueType
     c_m3Type_unknown
 } M3ValueType;
 
+typedef struct M3TaggedValue
+{
+    M3ValueType type;
+    union M3ValueUnion
+    {
+        uint32_t    i32;
+        uint64_t    i64;
+        float       f32;
+        double      f64;
+    } value;
+}
+M3TaggedValue, * IM3TaggedValue;
 
 typedef struct M3ImportInfo
 {
@@ -129,6 +165,7 @@ d_m3ErrorConst  (wasmSectionUnderrun,           "section underrun while parsing 
 d_m3ErrorConst  (wasmSectionOverrun,            "section overrun while parsing Wasm binary")
 d_m3ErrorConst  (invalidTypeId,                 "unknown value_type")
 d_m3ErrorConst  (tooManyMemorySections,         "Wasm MVP can only define one memory per module")
+d_m3ErrorConst  (tooManyArgsRets,               "too many arguments or return values")
 
 // link errors
 d_m3ErrorConst  (moduleAlreadyLinked,           "attempting to bind module to multiple runtimes")
@@ -140,11 +177,13 @@ d_m3ErrorConst  (malformedFunctionSignature,    "malformed function signature")
 // compilation errors
 d_m3ErrorConst  (noCompiler,                    "no compiler found for opcode")
 d_m3ErrorConst  (unknownOpcode,                 "unknown opcode")
+d_m3ErrorConst  (restictedOpcode,               "restricted opcode")
 d_m3ErrorConst  (functionStackOverflow,         "compiling function overran its stack height limit")
 d_m3ErrorConst  (functionStackUnderrun,         "compiling function underran the stack")
 d_m3ErrorConst  (mallocFailedCodePage,          "memory allocation failed when acquiring a new M3 code page")
 d_m3ErrorConst  (settingImmutableGlobal,        "attempting to set an immutable global")
-d_m3ErrorConst  (typeMismatch,                  "malformed Wasm: incorrect type on stack")
+d_m3ErrorConst  (typeMismatch,                  "incorrect type on stack")
+d_m3ErrorConst  (typeCountMismatch,             "incorrect value count on stack")
 
 // runtime errors
 d_m3ErrorConst  (missingCompiledCode,           "function is missing compiled m3 code")
@@ -152,6 +191,10 @@ d_m3ErrorConst  (wasmMemoryOverflow,            "runtime ran out of memory")
 d_m3ErrorConst  (globalMemoryNotAllocated,      "global memory is missing from a module")
 d_m3ErrorConst  (globaIndexOutOfBounds,         "global index is too large")
 d_m3ErrorConst  (argumentCountMismatch,         "argument count mismatch")
+d_m3ErrorConst  (argumentTypeMismatch,          "argument type mismatch")
+d_m3ErrorConst  (globalLookupFailed,            "global lookup failed")
+d_m3ErrorConst  (globalTypeMismatch,            "global type mismatch")
+d_m3ErrorConst  (globalNotMutable,              "global is not mutable")
 
 // traps
 d_m3ErrorConst  (trapOutOfBoundsMemoryAccess,   "[trap] out of bounds memory access")
@@ -232,6 +275,20 @@ d_m3ErrorConst  (trapStackOverflow,             "[trap] stack overflow")
 
     const char*         m3_GetModuleName            (IM3Module i_module);
     IM3Runtime          m3_GetModuleRuntime         (IM3Module i_module);
+
+//-------------------------------------------------------------------------------------------------------------------------------
+//  globals
+//-------------------------------------------------------------------------------------------------------------------------------
+    IM3Global           m3_FindGlobal               (IM3Module              io_module,
+                                                     const char * const     i_globalName);
+
+    M3Result            m3_GetGlobal                (IM3Global              i_global,
+                                                     IM3TaggedValue         o_value);
+
+    M3Result            m3_SetGlobal                (IM3Global              i_global,
+                                                     const IM3TaggedValue   i_value);
+
+    M3ValueType         m3_GetGlobalType            (IM3Global              i_global);
 
 //-------------------------------------------------------------------------------------------------------------------------------
 //  functions
