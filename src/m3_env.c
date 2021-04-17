@@ -464,18 +464,15 @@ M3Result  InitDataSegments  (M3Memory * io_memory, IM3Module io_module)
         i32 segmentOffset;
         bytes_t start = segment->initExpr;
 _       (EvaluateExpression (io_module, & segmentOffset, c_m3Type_i32, & start, segment->initExpr + segment->initExprSize));
-        //m3log (runtime, "loading data segment: %d; size: %d; offset: %d", i, segment->size, segmentOffset);
-//cdbg(PSTR("    DS: %d; size: %d; offset: %d mem: %d"), i, segment->size, segmentOffset, io_memory->mallocated->length);
+        m3log (runtime, "loading data segment: %d; size: %d; offset: %d", i, segment->size, segmentOffset);
 
         if (io_memory->mallocated) {
             u8 * dest = m3MemData (io_memory->mallocated) + segmentOffset;
 
             if ((size_t) segmentOffset + segment->size <= io_memory->mallocated->length) {
-                if (bc_in_rom) { // segment->data > ROM_BASE ) {
-                    //cdbg(PSTR("    ROM %p %p [%d]"),dest,segment->data, segment->size);
+                if (BC_IN_ROM) { // segment->data > ROM_BASE ) {
                     memcpy_P(dest, segment->data, segment->size);
                 } else {
-                    //cdbg(PSTR("    RAM %p %p [%d]"),dest,segment->data, segment->size);
                     memcpy(dest, segment->data, segment->size);
                 }
             } else {
@@ -700,14 +697,14 @@ void *  v_FindFunction  (IM3Module i_module, const char * const i_name)
                 continue;
 
             // same len check for char but not terminal zero
-            uintptr_t romptr = strtol(&sptr[2], NULL, 16);
-            if (strncmp_P(i_name, (const char *)romptr, matchlen ) == 0) {
+            STR_translate(sptr);
+            if (strncmp(i_name, SB, matchlen ) == 0) {
                 return f;
             }
             #undef sptr
         }
     }
-    cdbg("v_FindFunction(%s) 404", i_name );
+    CLOG("v_FindFunction(%s) 404", i_name );
 
     return NULL;
 }
@@ -718,14 +715,14 @@ M3Result  m3_FindFunction  (IM3Function * o_function, IM3Runtime i_runtime, cons
     M3Result result = m3Err_none;
 
     if (!i_runtime->modules) {
-        cdbg(PSTR("m3_FindFunction-> no modules"));
+        CLOG("m3_FindFunction-> no modules");
         return "no modules loaded";
     }
 
     IM3Function function = (IM3Function) ForEachModule (i_runtime, (ModuleVisitor) v_FindFunction, (void *) i_functionName);
 
     if (function) {
-        cdbg(PSTR("\r\nm3_FindFunction(%s)->function"), i_functionName);
+        CLOG("\r\nm3_FindFunction(%s)->function", i_functionName);
         if (not function->compiled) {
 CLOG("Compile_Function-2 m3_FindFunction(%s)", i_functionName);
             result = Compile_Function (function);
@@ -745,13 +742,13 @@ CLOG("m3_FindFunction(%s)-> ERROR", i_functionName);
     // Check if start function needs to be called
     if (function) {
         if (function->module->startFunction) {
-            cdbg(PSTR("function->module->startFunction(%s)"), i_functionName);
+            CLOG("function->module->startFunction(%s)", i_functionName);
             result = m3_RunStart (function->module);
             if (result) {
-                cdbg(PSTR("ret:%s(%s)"), i_functionName, result);
+                CLOG("ret:%s(%s)", i_functionName, result);
                 return result;
             } else {
-                cdbg(PSTR("ret:%s(OK)"), i_functionName);
+                CLOG("ret:%s(OK)", i_functionName);
             }
         }
     }

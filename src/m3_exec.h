@@ -552,7 +552,7 @@ d_m3Op  (CallIndirect)
             if (LIKELY(type == function->funcType))
             {
                 if (UNLIKELY(not function->compiled)) {
-cdbg(PSTR("Compile_Function-3 (UNLIKELY)"));
+CLOG("Compile_Function-3 (UNLIKELY)");
                     r = CompileFunction (function);
                 }
                 if (LIKELY(not r))

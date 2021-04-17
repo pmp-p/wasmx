@@ -1,43 +1,68 @@
 //C
 
-#include <string.h>
+//#include <string.h>
 
-int bc_in_rom;
+#if defined(__ARDUINO__) or (ARDUINO)
+    // ARDUINO API FIXES
+    #if defined(ESP32)
+
+    #elif defined(ESP8266)
+        #pragma message "ESP-8266"
+        int clock_getres(clockid_t clockid, struct timespec *res) {
+            CLOG("int clock_getres(clockid_t clockid, struct timespec *res) { stub }");
+            return 0;
+        }
+
+    #endif
+
+    #if defined(ESP32) || defined(ESP8266)
+        int openat (int fd, const char *pathname, int flags, ...) {
+            CLOG("stub");
+            return 0;
+        }
+    #endif
+
+void_v COUT_FUNCTIONPTR;
+#else
+    #include "extra/wasm3.extra"
+#endif
+
+
+
+
+#if !defined(BC_IN_ROM)
+int BC_IN_ROM;
+#endif
 
 char RB[RB_SIZE];
 char SB[SB_SIZE];
-void_v COUT_FUNCTIONPTR;
+
 int OOM = 0;
 unsigned long SECTION_TEXT_SIZE = 0;
 unsigned long SECTION_TEXT_IDX = 0;
 
-void cdbg(const char *fmt, ...) {
-    va_list argptr;
-    va_start (argptr, fmt );
-    vsnprintf_P(RB,RB_SIZE,fmt,argptr);
-    if (COUT_FUNCTIONPTR)
-        COUT_FUNCTIONPTR();
-    va_end (argptr);
-}
 
 void *BC_COPY(void *dest, const void *src, size_t n) {
-    if (bc_in_rom)
-        return memcpy_P(dest,src,n);
-    else
-        return memcpy(dest, src,n);
+    return memcpy_P(dest,src,n);
 }
 
 const char * STR_translate(const char *sptr) {
+#if BC_IN_ROM && STRCOMPRESS
     if (sptr) {
         if (strlen(sptr)>2) {
             if (sptr[0]=='@') {
+#if ROM_BASE
+                uintptr_t romptr = strtol(&sptr[2], NULL, 16) + ROM_BASE_BC;
+#else
                 uintptr_t romptr = strtol(&sptr[2], NULL, 16);
+#endif
                 memcpy_P(&SB, (const void *__restrict)romptr, sptr[1]);
                 SB[sptr[1]]=0;
                 goto done;
             }
         }
     }
+#endif
 // default to raw
     strncpy( SB, sptr, SB_MAX);
     SB[SB_MAX]=0;
@@ -45,3 +70,5 @@ const char * STR_translate(const char *sptr) {
 done:
     return sptr;
 }
+
+

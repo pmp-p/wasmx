@@ -306,7 +306,7 @@ CLOG("Read_u8 u/r io=%p end=%p", io_bytes, i_end);
         return m3Err_wasmUnderrun;
     }
 
-    if (bc_in_rom){
+    if (BC_IN_ROM){
         BC_COPY(o_value, *io_bytes, sizeof(u8));
         *io_bytes += sizeof(u8);
     } else {
@@ -329,7 +329,7 @@ CLOG("Read_opcode u/r io=%p end=%p", io_bytes, i_end);
     m3opcode_t opcode = 0;
     u8 b = 0;
     //ROM
-    if (bc_in_rom) {
+    if (BC_IN_ROM) {
         Read_u8(&b, io_bytes, i_end);
         opcode = (m3opcode_t)b;
     } else {
@@ -498,63 +498,71 @@ M3Result  ReadLEB_i64  (i64 * o_value, bytes_t * io_bytes, cbytes_t i_end)
 M3Result  Read_utf8  (cstr_t * o_utf8, bytes_t * io_bytes, cbytes_t i_end)
 {
     //ROM
-    if (bc_in_rom){
+    if (BC_IN_ROM){
 
         *o_utf8 = NULL;
         u32 utf8Length;
         M3Result result = ReadLEB_u32 (& utf8Length, io_bytes, i_end);
 
-        if (not result)
-        {
-            if (utf8Length <= d_m3MaxSaneUtf8Length)
-            {
-                const u8 * end = *io_bytes + utf8Length;
+        if (result)
+            return result;
+        if (utf8Length <= d_m3MaxSaneUtf8Length) {
+            const u8 * end = *io_bytes + utf8Length;
 
-                if (end <= i_end)
-                {
+            if (end <= i_end) {
 //PMPP
-if (STRCOMPRESS) { //bc_in_rom){
-    //  12 xxxx xxxx
-                    #define STRHEADER 12
-                    #define STRMAX STRHEADER-1
-                    char * utf8 = (char *)m3_Malloc ( STRHEADER );
-                    if (utf8) {
-                        ++SECTION_TEXT_IDX;
-                        SECTION_TEXT_SIZE += utf8Length;
-                        snprintf(utf8, STRMAX, "@%c%08x", utf8Length, *io_bytes);
-                        utf8[STRMAX] = 0;
-                        * o_utf8 = utf8;
-                        if (utf8Length>SB_MAX) {
-                            cdbg(PSTR("525:utf8 B/O %d > %d"), utf8Length, SB_MAX);
-                            utf8Length=SB_MAX;
-                        }
+#if STRCOMPRESS && BC_IN_ROM
 
-                        BC_COPY(&SB, *io_bytes, utf8Length);
-                        SB[utf8Length]=0;
-//                        cdbg(PSTR("530:utf8[#%d %s \"%s\""), SECTION_TEXT_IDX, &utf8[2], SB);
-                    } else {
-                        OOM = utf8Length;
-                        cdbg(PSTR("585:utf8 alloc %d"), utf8Length);
-                        return m3Err_wasmMemoryOverflow;
+#if ROM_BASE_BC
+        //  1=@ 2=LEN 3456=ADDR 7=ZT
+                #define STRHEADER 7
+#else
+                #define STRHEADER 11
+#endif
+                #define STRMAX STRHEADER-1
+                char * utf8 = (char *)m3_Malloc ( STRHEADER );
+                if (utf8) {
+                    ++SECTION_TEXT_IDX;
+                    SECTION_TEXT_SIZE += utf8Length;
+#if ROM_BASE
+                    snprintf(utf8, STRHEADER, "@%c%4x", utf8Length, *io_bytes - ROM_BASE_BC );
+#else
+                    snprintf(utf8, STRHEADER, "@%c%08x", utf8Length, *io_bytes );
+#endif
+                    utf8[STRMAX] = 0;
+                    * o_utf8 = utf8;
+                    if (utf8Length>SB_MAX) {
+                        CLOG("525:utf8 B/O %d > %d", utf8Length, SB_MAX);
+                        utf8Length=SB_MAX;
                     }
-} else {
-                    char * utf8 = (char *)m3_Malloc (utf8Length + 1);
-                    if (utf8)
-                    {
-                        BC_COPY(utf8, *io_bytes, utf8Length);
-                        utf8 [utf8Length] = 0;
-                        * o_utf8 = utf8;
-                    } else {
-    OOM = utf8Length;
-CLOG("585:utf8 alloc %d", utf8Length);
-    return m3Err_wasmMemoryOverflow;
-                    }
-}
-                    *io_bytes = end;
+
+                    BC_COPY(&SB, *io_bytes, utf8Length);
+                    SB[utf8Length]=0;
+CLOG("Read_utf8[#%d %s \"%s\"", SECTION_TEXT_IDX, &utf8[2], SB);
+                } else {
+                    OOM = utf8Length;
+                    CLOG("585:utf8 alloc %d", utf8Length);
+                    return m3Err_wasmMemoryOverflow;
                 }
-                else result = m3Err_wasmUnderrun;
+#else
+                char * utf8 = (char *)m3_Malloc (utf8Length + 1);
+                if (utf8)
+                {
+                    BC_COPY(utf8, *io_bytes, utf8Length);
+                    utf8 [utf8Length] = 0;
+                    * o_utf8 = utf8;
+                } else {
+                    OOM = utf8Length;
+CLOG("585:utf8 alloc %d", utf8Length);
+                    return m3Err_wasmMemoryOverflow;
+                }
+#endif
+                    *io_bytes = end;
+            } else {
+                result = m3Err_wasmUnderrun;
             }
-            else result = m3Err_missingUTF8;
+        } else {
+            result = m3Err_missingUTF8;
         }
         return result;
 

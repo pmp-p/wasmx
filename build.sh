@@ -4,9 +4,23 @@ URL_EpoxyDuino="https://github.com/pmp-p/EpoxyDuino.git"
 
 
 CC=${CC:-clang}
-CXX=${CC}++
+CXX=${CXX:-$CC}
+if echo $CXX|grep -q ++$
+then
+    echo
+else
+    CXX=$CXX++
+fi
 
-CDEFS="-DEPOXY_DUINO -Dd_m3HasWASI=1 -Dd_m3HasTracer=1 -D__ARDUINO__=1 -I./EpoxyDuino/ -I./src/ -Wno-deprecated"
+
+echo "
+CC=$CC
+CXX=$CXX
+
+"
+
+
+CDEFS="-DEPOXY_DUINO -Dd_m3HasWASI=1 -D__ARDUINO__=1 -I./EpoxyDuino/ -I./src/ -Wno-deprecated"
 
 BUILD=build/$(arch)
 mkdir -p $BUILD

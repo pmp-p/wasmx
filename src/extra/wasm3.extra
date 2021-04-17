@@ -1,13 +1,109 @@
-#define ROM_BASE 0x40000000
-extern int OOM;
+#ifndef WASM3_XTRA
 
-#define STRCOMPRESS (1)
+#define BC_IN_ROM (0)
+#define STRCOMPRESS (0)
+
+#define False false
+#define True true
+#define STRINGIFY(a) #a
+#define TOSTRING(x) STRINGIFY(x)
+#define LENGTH(x)  (sizeof(x) / sizeof((x)[0]))
+
+#if defined(__ARDUINO__) || defined(ARDUINO)
+    #include <Arduino.h>
+
+    #if defined(ESP32)
+        #define ROM_BASE (0)
+
+        #undef BC_IN_ROM
+        #undef STRCOMPRESS
+
+        #define BC_IN_ROM (1)
+        #define STRCOMPRESS (1)
+
+        #define ROM_BASE 0
+        //#define ROM_BASE 0x3f400000
+        #define ROM_BASE_BC ROM_BASE
+
+        #define PSTR(x) x
+        #define memcpy_P memcpy
+    #elif defined(ESP8266)
+
+        #undef BC_IN_ROM
+        #undef STRCOMPRESS
+
+        #define ROM_BASE 0x40000000
+        #define ROM_BASE_BC 0x40240000
+
+        #define BC_IN_ROM (1)
+        #define STRCOMPRESS (1)
+
+
+    #else
+        #pragma message "irom start address ?"
+        #define ROM_BASE (0)
+    #endif
+
+    #define CLOG(fmt, ...) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " " fmt), ##__VA_ARGS__);}
+
+    #ifndef d_m3HasWASI
+        #define d_m3HasWASI (1)
+    #endif
+
+    #define CLOCK_MONOTONIC 0
+    #define CLOCK_PROCESS_CPUTIME_ID 2
+    # define CLOCK_THREAD_CPUTIME_ID        3
+    #define O_DSYNC 010000
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void cdbg(const char *fmt, ...);
+#ifdef __cplusplus
+}
+#endif
+
+#else
+    //#define ROM_BASE_BC 0x00430000
+    #define ROM_BASE (0)
+
+    #pragma message "stubbing avr/pgmspace"
+
+    #define PGM_P const char *
+    #define PGM_VOID_P const void *
+    #define PSTR(str) (str)
+    #define PROGMEM
+    #define pgm_read_byte(p) (* (const uint8_t*) (p))
+    #define pgm_read_word(p) (* (const uint16_t*) (p))
+    #define pgm_read_dword(p) (* (const uint32_t*) (p))
+    #define pgm_read_float(p) (* (const float*) (p))
+    #define pgm_read_ptr(p) (* (const void* const*) (p))
+
+    #define strlen_P strlen
+    #define strcat_P strcat
+    #define strcpy_P strcpy
+    #define strncpy_P strncpy
+    #define strcmp_P strcmp
+    #define strncmp_P strncmp
+    #define strcasecmp_P strcasecmp
+    #define strchr_P strchr
+    #define strrchr_P strrchr
+    #define memcpy_P memcpy
+    #define vsnprintf_P vsnprintf
+    #define CLOG(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+#endif
+
+#if !defined(BC_IN_ROM)
+    extern int BC_IN_ROM;
+#endif
+
+
+
+extern int OOM;
 
 #define RB_SIZE 128
 #define RB_MAX RB_SIZE-1
 extern char RB[RB_SIZE];
-
-extern void cdbg(const char *fmt, ...);
 
 // string handling  "SB" means "String Buffer"
 #define SB_SIZE 256
@@ -16,23 +112,12 @@ extern unsigned long SECTION_TEXT_IDX;
 extern unsigned long SECTION_TEXT_SIZE;
 extern char SB[SB_SIZE];
 extern const char * STR_translate(const char *sptr);
-extern int bc_in_rom ;
+
 extern void *BC_COPY(void *dest, const void *src, size_t n);
 
 // stdout
 typedef void (*void_v)();
 extern void_v COUT_FUNCTIONPTR;
 
-
-#ifndef TOSTRING
-    #define False false
-    #define True true
-    #define STRINGIFY(a) #a
-    #define TOSTRING(x) STRINGIFY(x)
-    #define LENGTH(x)  (sizeof(x) / sizeof((x)[0]))
+#define WASM3_XTRA
 #endif
-
-#define PANIC if (bc_in_rom) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " PANIC")); return 1; }
-
-//#define CLOG(fmt, argv...) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) fmt), argv);}
-#define CLOG(fmt, ...) { cdbg(PSTR(__FILE__ ":" TOSTRING(__LINE__) " " fmt), ##__VA_ARGS__);}

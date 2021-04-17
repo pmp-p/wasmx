@@ -537,7 +537,7 @@ M3Result  ParseModuleSection  (M3Module * o_module, u8 i_sectionType, bytes_t i_
     if (parser)
     {
         cbytes_t end = i_bytes + i_numBytes;
-        cdbg("ParseModuleSection type %d len %d", i_sectionType, i_numBytes);
+CLOG("ParseModuleSection type %d len %d", i_sectionType, i_numBytes);
         result = parser (o_module, i_bytes, end);
     }
     else

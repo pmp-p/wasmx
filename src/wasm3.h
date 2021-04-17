@@ -13,46 +13,16 @@
 #define M3_VERSION_REV   9
 #define M3_VERSION       "0.4.9"
 
-#if defined(__ARDUINO__) || defined(ARDUINO)
-    #include <Arduino.h>
-#else
-    #define PGM_P const char *
-    #define PGM_VOID_P const void *
-    #define PSTR(str) (str)
-
-    #define PROGMEM
-
-    #define pgm_read_byte(p) (* (const uint8_t*) (p))
-    #define pgm_read_word(p) (* (const uint16_t*) (p))
-    #define pgm_read_dword(p) (* (const uint32_t*) (p))
-    #define pgm_read_float(p) (* (const float*) (p))
-    #define pgm_read_ptr(p) (* (const void* const*) (p))
-
-    #define strlen_P strlen
-    #define strcat_P strcat
-    #define strcpy_P strcpy
-    #define strncpy_P strncpy
-    #define strcmp_P strcmp
-    #define strncmp_P strncmp
-    #define strcasecmp_P strcasecmp
-    #define strchr_P strchr
-    #define strrchr_P strrchr
-    #define memcpy_P memcpy
-    #define vsnprintf_P vsnprintf
-
-#endif
-
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdarg.h>
 
+#include "extra/wasm3.extra"
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
-
-#include "extra/wasm3.extra"
 
 typedef const char *    M3Result;
 

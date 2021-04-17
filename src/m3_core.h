@@ -28,10 +28,6 @@
 d_m3BeginExternC
 
 
-//void cdbg(const char *fmt, ...);
-
-
-
 #if !defined(d_m3ShortTypesDefined)
 #if d_m3HasFloat || d_m3NoFloatDynamic
 typedef double          f64;
