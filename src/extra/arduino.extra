@@ -1,0 +1,128 @@
+/*
+ * API bindings
+ *
+ * Note: each RawFunction should complete with one of these calls:
+ *   m3ApiReturn(val)   - Returns a value
+ *   m3ApiSuccess()     - Returns void (and no traps)
+ *   m3ApiTrap(trap)    - Returns a trap
+ */
+
+m3ApiRawFunction(m3_arduino_millis)
+{
+    m3ApiReturnType (uint32_t)
+    m3ApiReturn(millis());
+}
+
+m3ApiRawFunction(m3_arduino_delay)
+{
+    m3ApiGetArg     (uint32_t, ms)
+    delay(ms);
+    m3ApiSuccess();
+}
+
+uint8_t mapPinMode(uint8_t mode)
+{
+    switch(mode) {
+        case 0: return INPUT;
+        case 1: return OUTPUT;
+        case 2: return INPUT_PULLUP;
+    }
+    return INPUT;
+}
+
+
+m3ApiRawFunction(m3_arduino_pinMode)
+{
+    m3ApiGetArg     (uint32_t, pin)
+    m3ApiGetArg     (uint32_t, mode)
+
+#if !defined(PARTICLE)
+    typedef uint8_t PinMode;
+#endif
+    pinMode(pin, (PinMode)mapPinMode(mode));
+
+    m3ApiSuccess();
+}
+
+m3ApiRawFunction(m3_arduino_digitalWrite)
+{
+    m3ApiGetArg     (uint32_t, pin)
+    m3ApiGetArg     (uint32_t, value)
+
+    digitalWrite(pin, value);
+/*
+    Serial.print(F("m3_arduino_digitalWrite:"));
+    Serial.println(value);
+    yield();
+*/
+    m3ApiSuccess();
+}
+
+m3ApiRawFunction(m3_arduino_getPinLED)
+{
+    m3ApiReturnType (uint32_t)
+
+    Serial.print(F("m3_arduino_getPinLED:"));
+    Serial.println(LED_BUILTIN);
+    yield();
+
+    m3ApiReturn(LED_BUILTIN);
+}
+
+m3ApiRawFunction(m3_arduino_print)
+{
+    m3ApiGetArgMem  (const uint8_t *, buf)
+    m3ApiGetArg     (uint32_t,        len)
+    //char RB[256];
+
+    //printf("api: print %p %d\n", buf, len);
+
+    Serial.print("print[");
+    for (int i=0; i<len; i++)
+        Serial.write((unsigned char)buf[i]);
+    Serial.println("]");
+    yield();
+    m3ApiSuccess();
+}
+
+const char PROGMEM greet[] = "Hello WASM world!"; // 😊";
+
+m3ApiRawFunction(m3_arduino_getGreeting)
+{
+    m3ApiGetArgMem  (uint8_t *,    out)
+    m3ApiGetArg     (int32_t,      out_len)
+
+
+    memcpy_P(out, greet, min(sizeof(greet), (unsigned int)out_len));
+
+    m3ApiSuccess();
+}
+
+m3ApiRawFunction(m3_dummy)
+{
+    m3ApiSuccess();
+}
+
+
+
+PROGMEM M3Result LinkArduino(IM3Module module) {
+    const char* arduino = "arduino";
+    if (module) {
+        m3_LinkRawFunction (module, arduino, "millis",           "i()",    &m3_arduino_millis);
+        m3_LinkRawFunction (module, arduino, "delay",            "v(i)",   &m3_arduino_delay);
+        m3_LinkRawFunction (module, arduino, "pinMode",          "v(ii)",  &m3_arduino_pinMode);
+        m3_LinkRawFunction (module, arduino, "digitalWrite",     "v(ii)",  &m3_arduino_digitalWrite);
+
+        // Test functions
+        m3_LinkRawFunction (module, arduino, "getPinLED",        "i()",    &m3_arduino_getPinLED);
+        m3_LinkRawFunction (module, arduino, "getGreeting",      "v(*i)",  &m3_arduino_getGreeting);
+        m3_LinkRawFunction (module, arduino, "print",            "v(*i)",  &m3_arduino_print);
+
+        // Dummy (for TinyGo)
+        m3_LinkRawFunction (module, "env",   "io_get_stdout",    "i()",    &m3_dummy);
+    } else {
+        cdbg(PSTR("193: runtime->modules is null"));
+    }
+
+    return m3Err_none;
+}

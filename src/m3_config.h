@@ -10,6 +10,9 @@
 
 #include "m3_config_platforms.h"
 
+#define WASMX_CONFIG_ONLY
+#include "wasmx.h"
+
 // general --------------------------------------------------------------------
 
 # ifndef d_m3CodePageAlignSize

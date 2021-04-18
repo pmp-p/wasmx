@@ -11,40 +11,6 @@
 #define PSRAM (1)
 
 
-#define NATIVE_STACK_SIZE   3700
-// wasm3 --stack-size 3700 can run wapy header only test
-
-#define WASM_STACK_SLOTS    512
-
-
-// For (most) devices that cannot allocate a 64KiB wasm page
-//#define WASM_MEMORY_LIMIT   4096 NO BLINK
-//#define WASM_MEMORY_LIMIT   8192+1024  // BLINK
-// 41000 no modules
-
-// ARDUINO !
-#if defined(ESP8266)
-    //#define WASM_MEMORY_LIMIT   40120
-    #define WASM_MEMORY_LIMIT   40100
-
-#elif defined(ESP32)
-    // #define WASM_MEMORY_LIMIT   66576
-
-    #undef NATIVE_STACK_SIZE
-    #define NATIVE_STACK_SIZE   3904
-    #if 0
-        #define WASM_MEMORY_LIMIT   2*65535
-    #else
-        #define WASM_MEMORY_LIMIT   3*32768 + 16384 + 8192
-
-    #endif
-
-#else
-// 66576 for wasi native test
-    // #define WASM_MEMORY_LIMIT   2*32768+1040
-    #define WASM_MEMORY_LIMIT   2*65535
-#endif
-
 
 #ifndef d_m3HasWASI
     #define d_m3HasWASI WASI
@@ -89,8 +55,8 @@ void cdbg(const char *fmt, ...) {
     //#include "app.irom.h"
 
     // WASI tests
-    //#include "/data/git/wasmx/wapy.wasi.h"
-    #include "/data/git/wasmx/examples_wasi/wapy/hello.h"
+    #include "/data/git/wasmx/wapy.wasi.h"
+    //#include "/data/git/wasmx/examples_wasi/wapy/hello.h"
 
 #else
     // arduino
@@ -110,9 +76,23 @@ void cdbg(const char *fmt, ...) {
 extern void_v COUT_FUNCTIONPTR;
 
 PROGMEM void cout() {
-    Serial.println(RB);
+    static int last_slash = 0;
+    if (RB[0]=='/') {
+        for (int i=0;i<RB_MAX;i++) {
+                if (RB[i]==':') {
+                    last_slash++;
+                    goto display;
+                }
+                if (RB[i]=='/')
+                    last_slash = i;
+        }
+        last_slash = 0;
+    }
+display:
+    Serial.println(&RB[last_slash]);
     RB[0]=0;
 }
+
 
 // 104 B
 PROGMEM void common_setup() {
@@ -154,81 +134,89 @@ PROGMEM void wasm_task(void*)
     // 384 - 27268
     COUT_FUNCTIONPTR = cout;
 
-    M3Result result = m3Err_none;
+    if ( init_ram( d_m3FixedHeap ) ) {
 
-    // 1416 - 28684
-    IM3Environment env = m3_NewEnvironment ();
+        M3Result result = m3Err_none;
 
-#if DEBUG
-    if (!env)
-        FATAL("NewEnvironment", "failed");
-#endif
-
-    // 268 - 28952
-    IM3Runtime runtime = m3_NewRuntime (env, WASM_STACK_SLOTS, NULL);
+        // 1416 - 28684
+        IM3Environment env = m3_NewEnvironment ();
 
 #if DEBUG
-    if (!runtime)
-        FATAL("NewRuntime", "failed");
+        if (!env)
+            FATAL("NewEnvironment", "failed");
 #endif
 
-    runtime->memoryLimit = WASM_MEMORY_LIMIT;
+        // 268 - 28952
+        IM3Runtime runtime = m3_NewRuntime (env, WASM_STACK_SLOTS, NULL);
+
+#if DEBUG
+        if (!runtime)
+            FATAL("NewRuntime", "failed");
+#endif
+
+        runtime->memoryLimit = WASM_MEMORY_LIMIT;
 
 #pragma message "do r/w test of WASM memory !"
 
 
-    // 28952
-    IM3Module module;
+        // 28952
+        IM3Module module;
 
 #ifndef BC_IN_ROM
-    if (BC_IN_ROM) {
-        CHECK("ParseModule_ROM", m3_ParseModule (env, &module, app_wasm, app_wasm_len) );
-    } else {
-        CHECK("ParseModule_RAM", m3_ParseModule (env, &module, &app_wasm[0], app_wasm_len) );
-    }
+        if (BC_IN_ROM) {
+            CHECK("ParseModule_ROM", m3_ParseModule (env, &module, app_wasm, app_wasm_len) );
+        } else {
+            CHECK("ParseModule_RAM", m3_ParseModule (env, &module, &app_wasm[0], app_wasm_len) );
+        }
 #else
-    // 6076 - 35024
-    CHECK("ParseModule_ROM", m3_ParseModule(env, &module, app_wasm, app_wasm_len) );
+        // 6076 - 35024
+        CHECK("ParseModule_ROM", m3_ParseModule(env, &module, app_wasm, app_wasm_len) );
 #endif
 
 #if DEBUG
-    CLOG("PARSED");
+        CLOG("PARSED");
 #endif
 
-    // 4 - 35028
-    CHECK("LoadModule", m3_LoadModule (runtime, module) );
+        // 4 - 35028
+        CHECK("LoadModule", m3_LoadModule (runtime, module) );
 
-    #if WASI
-        // 620 - 35648
-        CHECK("LinkWASI",  m3_LinkWASI(runtime->modules) );
-    #else
-        CHECK("LinkArduino", LinkArduino(runtime->modules) );
-    #endif
+        #if WASI
+            // 620 - 35648
+            CHECK("LinkWASI",  m3_LinkWASI(runtime->modules) );
+        #else
+            CHECK("LinkArduino", LinkArduino(runtime->modules) );
+        #endif
 
-    IM3Function f;
+        IM3Function f;
 
 #if DEBUG
-    // Check for TinyGo entry function first
-    // See https://github.com/tinygo-org/tinygo/issues/866
-    result = m3_FindFunction (&f, runtime, "cwa_main");
+        // Check for TinyGo entry function first
+        // See https://github.com/tinygo-org/tinygo/issues/866
+        result = m3_FindFunction (&f, runtime, "cwa_main");
 
-    if (result) {
-        result = m3_FindFunction (&f, runtime, "_start");
-    }
+        if (result) {
+            result = m3_FindFunction (&f, runtime, "_start");
+        }
 
-    CHECK("FindFunction", result);
+        CHECK("FindFunction", result);
 #else
-    // 8 - 35036
-    CHECK("FindFunction", m3_FindFunction (&f, runtime, "_start"));
+        // 8 - 35036
+        CHECK("FindFunction", m3_FindFunction (&f, runtime, "_start"));
 
 #ifndef __ARDUINO__
-    delay(3000);
+        delay(3000);
 #endif
 
-    // 12 - 35048
-    result = (M3Result)( m3_CallV (f) );
+        // 12 - 35048
+        result = (M3Result)( m3_CallV (f) );
+        CLOG("exit value = %d", result) ;
+    }
+#if ESP32
+    vTaskDelete(NULL);
+#else
     delay(32000);
-    CLOG("exit value = %d", result) ;
+#endif
+
 #endif
 
 }

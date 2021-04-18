@@ -284,7 +284,7 @@ M3Result  EvaluateExpression  (IM3Module i_module, void * o_expressed, u8 i_type
     m3stack_t stack = (m3stack_t)runtime.stack;
 
     IM3Runtime savedRuntime = i_module->runtime;
-CLOG("i_module->runtime SET");
+//CLOG("i_module->runtime SET");
     i_module->runtime = & runtime;
 
     IM3Compilation o = & runtime.compilation;
@@ -330,7 +330,7 @@ CLOG("i_module->runtime SET");
 
     runtime.stack = NULL;        // prevent free(stack) in ReleaseRuntime
     Runtime_Release (& runtime);
-CLOG("i_module->runtime SET");
+//CLOG("i_module->runtime SET");
     i_module->runtime = savedRuntime;
 
     * io_bytes = o->wasm;
@@ -405,6 +405,10 @@ M3Result  ResizeMemory  (IM3Runtime io_runtime, u32 i_numPages)
         memory->mallocated->maxStack = (m3slot_t *) io_runtime->stack + io_runtime->numStackSlots;
 
         m3log (runtime, "resized old: %p; mem: %p; length: %zu; pages: %d", oldMallocated, memory->mallocated, memory->mallocated->length, memory->numPages);
+
+CLOG("d_m3MaxFunctionStackHeight %d d_m3CodePageAlignSize %d d_m3FixedHeap %d K",d_m3MaxFunctionStackHeight,d_m3CodePageAlignSize,d_m3FixedHeap/1024);
+CLOG("MEM old: %p; mem: %p; len: %zu; pg: %d", (M3MemoryHeader *)memory->mallocated, memory->mallocated, memory->mallocated->length, memory->numPages);
+
     }
     else result = m3Err_wasmMemoryOverflow;
 

@@ -78,7 +78,7 @@ then
     ${CXX} ${CDEFS} -x c++ -o $BUILD/wapy.out examples_wasi/wapy/wapy.ino -L${BUILD} -lwasmx
 
     echo running exe
-
+    reset
     ./$BUILD/wapy.out
 
 else

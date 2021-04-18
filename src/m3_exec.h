@@ -701,7 +701,7 @@ d_m3Op  (Compile)
 
     // check to see if function was compiled since this operation was emitted.
     if (UNLIKELY(not function->compiled)) {
-CLOG("Compile (UNLIKELY)");
+//CLOG("Compile (UNLIKELY)");
         result = CompileFunction (function);
     }
 

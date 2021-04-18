@@ -838,7 +838,6 @@ _       (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "path_open",  
 //_     (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "path_unlink_file",         "i(i*i)",       )));
 
 //_     (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "poll_oneoff",          "i(**i*)", &m3_wasi_generic_poll_oneoff)));
-_       (SuppressLookupFailure (m3_LinkRawFunctionEx (module, wasi, "proc_exit",          "v(i)",    &m3_wasi_generic_proc_exit, wasi_context)));
 //_     (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "proc_raise",           "i(i)",    )));
 _       (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "random_get",           "i(*i)",   &m3_wasi_generic_random_get)));
 //_     (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "sched_yield",          "i()",     )));
@@ -857,6 +856,9 @@ _catch:
 
 
 #else
+
+#include "extra/m3_api_wasi.extra"
+
 M3Result
 m3_LinkWASI(IM3Module module) {
     M3Result result = m3Err_none;
@@ -871,14 +873,14 @@ m3_LinkWASI(IM3Module module) {
     }
     static const char* wasi = { "wasi_snapshot_preview1" };
 
-    CLOG("m3_LinkWASI-2");
     m3_LinkRawFunction (module, wasi, "fd_write",             "i(i*i*)", &m3_wasi_generic_fd_write);
-
     m3_LinkRawFunction (module, wasi, "fd_prestat_get",       "i(i*)",   &m3_wasi_generic_fd_prestat_get);
     m3_LinkRawFunction (module, wasi, "fd_prestat_dir_name",  "i(i*i)",  &m3_wasi_generic_fd_prestat_dir_name);
     m3_LinkRawFunction (module, wasi, "fd_fdstat_get",        "i(i*)",   &m3_wasi_generic_fd_fdstat_get);
     m3_LinkRawFunction (module, wasi, "fd_close",             "i(i)",    &m3_wasi_generic_fd_close);
-    CLOG("m3_LinkWASI-3 %s", wasi);
+    m3_LinkRawFunctionEx (module, wasi, "proc_exit",          "v(i)",    &m3_wasi_generic_proc_exit, wasi_context);
+    WASI_EXTRA
+    CLOG("m3_LinkWASI %s done", wasi);
     return result;
 }
 

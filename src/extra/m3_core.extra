@@ -27,7 +27,64 @@ void_v COUT_FUNCTIONPTR;
     #include "extra/wasm3.extra"
 #endif
 
+uint8_t *dynHeapReal = NULL;
 
+#if d_m3FixedHeap
+uint8_t *dynHeapPtr = NULL;
+uint8_t* dynHeapEnd = NULL;
+uint8_t* dynHeapLast = NULL;
+
+uintptr_t
+init_ram(uintptr_t ramsize) {
+    /*
+    static u8 dynHeap[d_m3dynHeap];
+    static u8* dynHeapPtr = dynHeap;
+    static u8* const dynHeapEnd = dynHeap + d_m3dynHeap;
+    static u8* dynHeapLast = NULL;
+    */
+    if (dynHeapReal)
+        CLOG("Already allocated ??? %p", dynHeapReal);
+
+    if (ramsize > WASM_MEMORY_LIMIT) {
+#if ARDUINO
+        uintptr_t sz_spiram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        uintptr_t sz_dram = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        CLOG("ram downsized from %d to %d for dram=%d spiram=%d", ramsize, WASM_MEMORY_LIMIT, sz_dram-sz_spiram, sz_spiram );
+#else
+        CLOG("ram downsized from %d to %d", ramsize, WASM_MEMORY_LIMIT);
+#endif
+        ramsize = WASM_MEMORY_LIMIT;
+    }
+
+#if ARDUINO
+    #if ESP32
+        dynHeapReal = (uint8_t *)heap_caps_malloc(ramsize, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    #else
+        dynHeapReal = (uint8_t *)malloc(ramsize);
+    #endif
+#else
+    dynHeapReal = (uint8_t *)malloc(ramsize);
+#endif
+
+    dynHeapPtr = &dynHeapReal[0];
+    dynHeapEnd = &dynHeapPtr[0] + ramsize;
+    dynHeapLast = NULL;
+    if (!dynHeapReal) {
+        CLOG("heap alloc %d KiB failed", ramsize/1024);
+    } else {
+        CLOG("heap at %p %x", dynHeapReal, &dynHeapPtr[0]);
+    }
+    return (uintptr_t)&dynHeapPtr[0];
+}
+
+
+
+#else
+uintptr_t init_ram(uintptr_t ramsize) {
+    CLOG("ERROR dyamic heap alloc");
+    return WASM_MEMORY_LIMIT;
+}
+#endif
 
 
 #if !defined(BC_IN_ROM)
@@ -38,6 +95,7 @@ char RB[RB_SIZE];
 char SB[SB_SIZE];
 
 int OOM = 0;
+
 unsigned long SECTION_TEXT_SIZE = 0;
 unsigned long SECTION_TEXT_IDX = 0;
 

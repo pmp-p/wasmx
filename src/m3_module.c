@@ -94,6 +94,33 @@ _try {
     return result;
 }
 
+void  Module_GenerateNames  (IM3Module i_module)
+{
+    for (u32 i = 0; i < i_module->numFunctions; ++i)
+    {
+        IM3Function func = & i_module->functions [i];
+
+        if (func->numNames == 0)
+        {
+            char* buff = m3_AllocArray(char, 16);
+            snprintf(buff, 16, "$func%d", i);
+            func->names[0] = buff;
+            func->numNames = 1;
+        }
+    }
+    for (u32 i = 0; i < i_module->numGlobals; ++i)
+    {
+        IM3Global global = & i_module->globals [i];
+
+        if (global->name == NULL)
+        {
+            char* buff = m3_AllocArray(char, 16);
+            snprintf(buff, 16, "$global%d", i);
+            global->name = buff;
+        }
+    }
+}
+
 
 IM3Function  Module_GetFunction  (IM3Module i_module, u32 i_functionIndex)
 {
@@ -102,7 +129,7 @@ IM3Function  Module_GetFunction  (IM3Module i_module, u32 i_functionIndex)
     if (i_functionIndex < i_module->numFunctions)
     {
         func = & i_module->functions [i_functionIndex];
-        func->module = i_module;
+        //func->module = i_module;
     }
 
     return func;
@@ -111,16 +138,18 @@ IM3Function  Module_GetFunction  (IM3Module i_module, u32 i_functionIndex)
 
 const char*  m3_GetModuleName  (IM3Module i_module)
 {
-CLOG("m3_GetModuleName");
     if (!i_module || !i_module->name)
-        return "<unknown>";
+        return ".unnamed";
 
     return i_module->name;
 }
 
-IM3Runtime  m3_GetModuleRuntime  (IM3Module i_module)
+void  m3_SetModuleName  (IM3Module i_module, const char* name)
 {
-    CLOG("m3_GetModuleRuntime");
-    return i_module ? i_module->runtime : NULL;
+    if (i_module) i_module->name = name;
 }
 
+IM3Runtime  m3_GetModuleRuntime  (IM3Module i_module)
+{
+    return i_module ? i_module->runtime : NULL;
+}

@@ -1,11 +1,13 @@
+//
 m3ApiRawFunction(m3_wasi_unstable_shed_yield)
 {
     m3ApiReturnType  (uint32_t);
-    printf("m3_wasi_unstable_shed_yield\n");
-    m3ApiReturn(UVWASI_ESUCCESS);
+CLOG("m3_wasi_unstable_shed_yield");
+    m3ApiReturn(0);
 }
 
 #define WASI_EXTRA \
- (SuppressLookupFailure (m3_LinkRawFunction (module, wasi, "sched_yield",          "i()",  &m3_wasi_unstable_shed_yield ))); \
+ m3_LinkRawFunction (module, wasi, "sched_yield",          "i()",  &m3_wasi_unstable_shed_yield ); \
 
+//
 

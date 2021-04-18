@@ -1433,7 +1433,7 @@ CLOG("Compile_Call(%s)->function->compiled", m3_GetFunctionName (function) );
                 operand = function->compiled;
             } else {
                 d_m3Assert (function->module);  // not linked
-CLOG("Compile_Call(%s) ROM", m3_GetFunctionName (function) );
+//CLOG("Compile_Call(%s) ROM", m3_GetFunctionName (function) );
                 op = op_Compile;
                 operand = function;
             }

@@ -26,10 +26,22 @@ M3Result m3_Yield ()
 
 #if d_m3FixedHeap
 
+#if 0
 static u8 fixedHeap[d_m3FixedHeap];
 static u8* fixedHeapPtr = fixedHeap;
 static u8* const fixedHeapEnd = fixedHeap + d_m3FixedHeap;
 static u8* fixedHeapLast = NULL;
+#else
+
+    extern uint8_t *dynHeapPtr;
+    extern uint8_t* dynHeapEnd;
+    extern uint8_t* dynHeapLast;
+
+    #define fixedHeapPtr dynHeapPtr
+    #define fixedHeapEnd dynHeapEnd
+    #define fixedHeapLast dynHeapLast
+#endif
+
 
 #if d_m3FixedHeapAlign > 1
 #   define HEAP_ALIGN_PTR(P) P = (u8*)(((size_t)(P)+(d_m3FixedHeapAlign-1)) & ~ (d_m3FixedHeapAlign-1));

@@ -26,6 +26,12 @@
         #define ROM_BASE_BC ROM_BASE
 
         #define PSTR(x) x
+        /*
+        #define PGM_P       const char *
+        #define PGM_VOID_P  const void *
+        #define PSTR(s) (__extension__({static const char __c[] PROGMEM = (s); &__c[0];}))
+        */
+
         #define memcpy_P memcpy
     #elif defined(ESP8266)
 
@@ -59,6 +65,7 @@
 extern "C" {
 #endif
 extern void cdbg(const char *fmt, ...);
+extern uintptr_t init_ram(uintptr_t ramsize);
 #ifdef __cplusplus
 }
 #endif
@@ -90,22 +97,25 @@ extern void cdbg(const char *fmt, ...);
     #define strrchr_P strrchr
     #define memcpy_P memcpy
     #define vsnprintf_P vsnprintf
-    #define CLOG(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+    #define CLOG(fmt, ...) fprintf(stdout, fmt "\n", ##__VA_ARGS__)
 #endif
 
 #if !defined(BC_IN_ROM)
     extern int BC_IN_ROM;
 #endif
 
-
+extern uint8_t *dynHeapReal;
+extern uint8_t *dynHeapPtr;
+extern uint8_t* dynHeapEnd;
+extern uint8_t* dynHeapLast;
 
 extern int OOM;
 
-#define RB_SIZE 128
+#define RB_SIZE 256
 #define RB_MAX RB_SIZE-1
 extern char RB[RB_SIZE];
 
-// string handling  "SB" means "String Buffer"
+// interned string handling  "SB" means "String Buffer"
 #define SB_SIZE 256
 #define SB_MAX SB_SIZE-1
 extern unsigned long SECTION_TEXT_IDX;
